@@ -59,6 +59,23 @@ export class Engine {
   }
 
   /**
+   * Explicitly abandons or ends the active adventure (e.g. stream ended).
+   * @param {string} [reason='stream_ended']
+   * @returns {Array<object>} Events emitted
+   */
+  abandonAdventure(reason = 'stream_ended') {
+    return this.adventure.abandonAdventure(reason, this.state.party);
+  }
+
+  /**
+   * Returns outcome snapshot if adventure has concluded.
+   * @returns {object|null}
+   */
+  getOutcomeSnapshot() {
+    return this.adventure.outcomeSnapshot;
+  }
+
+  /**
    * Registers or updates a chatter in the active party.
    * Anyone who chatted in the last 15 minutes is automatically in the party.
    * @param {string} user 
@@ -171,6 +188,7 @@ export class Engine {
       themeVote: this.adventure.themeVote,
       exitVote: this.adventure.exitVote,
       combat: this.adventure.combat,
+      outcomeSnapshot: this.adventure.outcomeSnapshot,
       party: this.state.party
     };
   }

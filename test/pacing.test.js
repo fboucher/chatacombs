@@ -22,8 +22,8 @@ test('pacing - theme vote pauses during inactivity lull and does not resolve whi
   fakeTime += 5000;
   engine.handleMessage({ user: 'alice', displayName: 'Alice', text: '!vote 1' });
 
-  // Now chat goes completely quiet for 1 hour (3,600,000 ms)
-  fakeTime += 3600000;
+  // Now chat goes quiet for 20 minutes (below the 60m abandon threshold)
+  fakeTime += 1200000;
   const lullEvents = engine.tick(fakeTime);
 
   // Status must STILL be 'voting' - timers paused during idle lull!
@@ -89,8 +89,8 @@ test('pacing - monsters never counter-attack an idle party during stream lulls',
   });
   engine.adventure.combat.startEncounter();
 
-  // Chat goes quiet for 2 hours (streamer went to get lunch or talking)
-  fakeTime += 7200000;
+  // Chat goes quiet for 20 minutes (streamer is speaking or doing something else)
+  fakeTime += 1200000;
   const lullEvents = engine.tick(fakeTime);
 
   // Monster never attacked!
