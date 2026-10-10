@@ -105,3 +105,31 @@ export function buildMomentPrompt(momentType, details = {}) {
     `Facts: ${JSON.stringify(details)}`
   ].join('\n');
 }
+
+/**
+ * Builds user prompt for in-character @Bot Q&A or flavor actions.
+ * @param {object} params
+ * @param {string} params.user Viewer username
+ * @param {string} params.displayName Viewer display name
+ * @param {string} params.question Viewer text directed to bot
+ * @param {object} params.room Current room facts
+ * @param {object} [params.dungeonContext={}]
+ * @returns {string}
+ */
+export function buildChatQnaPrompt({ user, displayName, question, room, dungeonContext = {} }) {
+  const roomName = room?.name || 'the dungeon';
+  const roomType = room?.type || 'empty';
+  const exits = (room?.exits || []).map(e => typeof e === 'string' ? e : e.direction).join(', ') || 'none';
+  const monster = room?.monster ? `${room.monster.name} (${room.monster.hp} HP)` : 'none';
+
+  return [
+    `Viewer @${displayName || user} asks or acts: "${question}".`,
+    `Current Room State:`,
+    `- Room: ${roomName} (${roomType})`,
+    `- Verified Exits: ${exits}`,
+    `- Monster: ${monster}`,
+    ``,
+    `Respond in character as the Dungeon Master in 1-2 Twitch chat lines.`,
+    `Rules: Address @${displayName || user}. Do NOT invent exits or change game mechanics. If they perform a flavor action (e.g. "I kick the chest"), describe what happens purely as atmospheric flavor without changing actual items, HP or game state.`
+  ].join('\n');
+}
