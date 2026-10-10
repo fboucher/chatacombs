@@ -45,7 +45,8 @@ export class Engine {
       nudgeIntervalMs: this.nudgeIntervalMs,
       channel: this.channel,
       adventureRepo: this.adventureRepo,
-      partyRepo: this.partyRepo
+      partyRepo: this.partyRepo,
+      playerRepo: this.playerRepo
     });
 
     this.state = {
@@ -85,6 +86,7 @@ export class Engine {
       channel: this.channel,
       adventureRepo: this.adventureRepo,
       partyRepo: this.partyRepo,
+      playerRepo: this.playerRepo,
       id: restored.id,
       theme: restored.theme,
       status: restored.status,
