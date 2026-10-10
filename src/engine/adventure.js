@@ -39,20 +39,24 @@ export class Adventure {
     this.nudgeIntervalMs = options.nudgeIntervalMs ?? 600000;
     this.abandonTimeoutMs = options.abandonTimeoutMs ?? 3600000; // 60 minutes default
 
-    this.status = 'idle'; // 'idle' | 'voting' | 'active' | 'cleared' | 'wiped' | 'abandoned'
-    this.theme = null;
-    this.dungeon = null;
-    this.currentRoom = null;
+    this.id = options.id || null;
+    this.channel = options.channel || 'default';
+    this.adventureRepo = options.adventureRepo || null;
+
+    this.status = options.status || 'idle'; // 'idle' | 'voting' | 'active' | 'cleared' | 'wiped' | 'abandoned'
+    this.theme = options.theme || null;
+    this.dungeon = options.dungeon || null;
+    this.currentRoom = options.currentRoom || null;
     this.themeVote = null;
     this.exitVote = null;
     this.combat = null;
 
-    this.startedAt = null;
-    this.endedAt = null;
-    this.monstersSlain = 0;
-    this.roomsVisited = new Set();
-    this.roomsCleared = new Set();
-    this.outcomeSnapshot = null;
+    this.startedAt = options.startedAt ? (typeof options.startedAt === 'number' ? options.startedAt : new Date(options.startedAt).getTime()) : null;
+    this.endedAt = options.endedAt ? (typeof options.endedAt === 'number' ? options.endedAt : new Date(options.endedAt).getTime()) : null;
+    this.monstersSlain = options.monstersSlain || 0;
+    this.roomsVisited = options.roomsVisited || new Set();
+    this.roomsCleared = options.roomsCleared || new Set();
+    this.outcomeSnapshot = options.outcomeSnapshot || null;
 
     this.lastMessageAt = this.clock();
     this.lastNudgeAt = this.clock();
@@ -103,6 +107,10 @@ export class Adventure {
     this.exitVote = null;
     this.combat = null;
 
+    if (this.adventureRepo && this.id) {
+      this.adventureRepo.updateStatus(this.id, 'abandoned', new Date(this.endedAt).toISOString());
+    }
+
     const snapshot = this.buildOutcomeSnapshot('abandoned', party);
     return [
       createSayEvent(`🛑 The adventure has ended (${reason === 'idle_timeout' ? 'chat idle for 60m' : 'stream concluded'}).`),
@@ -134,6 +142,11 @@ export class Adventure {
     const choices = ['classic fantasy', shuffled[0], shuffled[1]];
 
     const now = this.clock();
+    if (this.adventureRepo) {
+      const row = this.adventureRepo.createAdventure(this.channel, 'pending_vote', 0, 'voting', new Date(now).toISOString());
+      this.id = row.id;
+    }
+
     this.themeVote = {
       choices,
       customSuggestions: 0,
@@ -249,6 +262,27 @@ export class Adventure {
     this.themeVote = null;
     this.exitVote = null;
 
+    if (this.adventureRepo) {
+      if (!this.id) {
+        const row = this.adventureRepo.createAdventure(
+          this.channel,
+          winningTheme,
+          this.dungeon.totalRooms,
+          'active',
+          new Date(this.startedAt).toISOString()
+        );
+        this.id = row.id;
+      } else {
+        this.adventureRepo.updateAdventure(this.id, {
+          theme: winningTheme,
+          status: 'active',
+          totalRooms: this.dungeon.totalRooms,
+          currentRoomIndex: 0
+        });
+      }
+      this.adventureRepo.saveRooms(this.id, this.dungeon.rooms);
+    }
+
     const entrance = this.currentRoom;
     const exitDirections = entrance.exits.map(e => e.direction);
 
@@ -298,6 +332,13 @@ export class Adventure {
     }
 
     room.exploration.searched = true;
+    if (this.adventureRepo && this.id) {
+      this.adventureRepo.updateRoomState(this.id, room.roomNumber, {
+        cleared: room.cleared,
+        looted: 1,
+        monster: room.monster
+      });
+    }
     const events = [];
     const name = displayName || user;
 
@@ -449,6 +490,10 @@ export class Adventure {
 
     this.currentRoom = nextRoom;
     this.roomsVisited.add(nextRoom.id);
+
+    if (this.adventureRepo && this.id) {
+      this.adventureRepo.updateCurrentRoomIndex(this.id, nextRoom.roomNumber - 1);
+    }
 
     // Revive knocked-out players on room change
     if (party) {
@@ -648,11 +693,23 @@ export class Adventure {
             this.monstersSlain++;
             this.roomsCleared.add(this.currentRoom.id);
 
+            if (this.adventureRepo && this.id) {
+              this.adventureRepo.updateRoomState(this.id, this.currentRoom.roomNumber, {
+                cleared: 1,
+                looted: this.currentRoom.exploration?.searched,
+                monster: this.currentRoom.monster
+              });
+            }
+
             // Check if final boss was defeated
             if (this.currentRoom.type === 'boss') {
               this.status = 'cleared';
               this.endedAt = currentTime;
               const snapshot = this.buildOutcomeSnapshot('cleared', party);
+
+              if (this.adventureRepo && this.id) {
+                this.adventureRepo.updateStatus(this.id, 'cleared', new Date(this.endedAt).toISOString());
+              }
 
               result.events.push(createSayEvent(
                 `🏆 VICTORY! The Boss ${this.currentRoom.monster.name} has fallen! The dungeon has been cleared in ${Math.round(snapshot.durationMs / 1000)}s!`
@@ -670,6 +727,10 @@ export class Adventure {
             this.endedAt = currentTime;
             this.combat = null;
             const snapshot = this.buildOutcomeSnapshot('wiped', party);
+
+            if (this.adventureRepo && this.id) {
+              this.adventureRepo.updateStatus(this.id, 'wiped', new Date(this.endedAt).toISOString());
+            }
 
             result.events.push(createGameEvent('party_wiped', {
               roomNumber: this.currentRoom.roomNumber,

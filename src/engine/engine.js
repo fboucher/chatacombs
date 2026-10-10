@@ -2,6 +2,7 @@ import { rollD20 } from './dice.js';
 import { createSayEvent, createGameEvent } from './events.js';
 import { Adventure } from './adventure.js';
 import { PlayerRepository } from '../db/playerRepo.js';
+import { AdventureRepository } from '../db/adventureRepo.js';
 
 /**
  * Chatacombs Core Engine.
@@ -18,6 +19,7 @@ export class Engine {
    * @param {string} [options.channel='default']
    * @param {import('better-sqlite3').Database} [options.db]
    * @param {PlayerRepository} [options.playerRepo]
+   * @param {AdventureRepository} [options.adventureRepo]
    * @param {object} [options.initialState={}]
    */
   constructor(options = {}) {
@@ -30,13 +32,16 @@ export class Engine {
 
     this.db = options.db || null;
     this.playerRepo = options.playerRepo || (this.db ? new PlayerRepository(this.db) : null);
+    this.adventureRepo = options.adventureRepo || (this.db ? new AdventureRepository(this.db) : null);
 
     this.adventure = new Adventure({
       rng: this.rng,
       clock: this.clock,
       voteDurationMs: this.voteDurationMs,
       inactivityThresholdMs: this.inactivityThresholdMs,
-      nudgeIntervalMs: this.nudgeIntervalMs
+      nudgeIntervalMs: this.nudgeIntervalMs,
+      channel: this.channel,
+      adventureRepo: this.adventureRepo
     });
 
     this.state = {
@@ -55,6 +60,38 @@ export class Engine {
    */
   startThemeVote() {
     return this.adventure.openThemeVote();
+  }
+
+  /**
+   * Restores an active or voting adventure from SQLite for crash recovery.
+   * Returns restored adventure instance or null if none active.
+   * @returns {Adventure|null}
+   */
+  restoreFromDb() {
+    if (!this.adventureRepo) return null;
+    const restored = this.adventureRepo.restoreActiveAdventure(this.channel);
+    if (!restored) return null;
+
+    this.adventure = new Adventure({
+      rng: this.rng,
+      clock: this.clock,
+      voteDurationMs: this.voteDurationMs,
+      inactivityThresholdMs: this.inactivityThresholdMs,
+      nudgeIntervalMs: this.nudgeIntervalMs,
+      channel: this.channel,
+      adventureRepo: this.adventureRepo,
+      id: restored.id,
+      theme: restored.theme,
+      status: restored.status,
+      dungeon: {
+        theme: restored.theme,
+        totalRooms: restored.totalRooms,
+        rooms: restored.rooms
+      },
+      currentRoom: restored.rooms[restored.currentRoomIndex] || restored.rooms[0]
+    });
+
+    return this.adventure;
   }
 
   /**
