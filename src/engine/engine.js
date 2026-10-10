@@ -1,5 +1,6 @@
 import { rollD20 } from './dice.js';
 import { createSayEvent, createGameEvent } from './events.js';
+import { Adventure } from './adventure.js';
 
 /**
  * Chatacombs Core Engine.
@@ -10,17 +11,45 @@ export class Engine {
    * @param {object} [options={}]
    * @param {() => number} [options.rng=Math.random]
    * @param {() => number} [options.clock=() => Date.now()]
+   * @param {number} [options.voteDurationMs=60000]
    * @param {object} [options.initialState={}]
    */
   constructor(options = {}) {
     this.rng = options.rng || Math.random;
     this.clock = options.clock || (() => Date.now());
+    this.voteDurationMs = options.voteDurationMs ?? 60000;
+
+    this.adventure = new Adventure({
+      rng: this.rng,
+      clock: this.clock,
+      voteDurationMs: this.voteDurationMs
+    });
+
     this.state = {
-      status: 'idle', // 'idle' | 'voting' | 'active' | 'cleared' | 'wiped' | 'abandoned'
       party: new Map(), // username -> { displayName, lastSeenAt, hp, maxHp, isKnockedOut, ... }
-      currentAdventure: null,
       ...options.initialState
     };
+  }
+
+  get status() {
+    return this.adventure.status;
+  }
+
+  /**
+   * Opens theme voting for a new adventure.
+   * @returns {Array<object>} Events emitted
+   */
+  startThemeVote() {
+    return this.adventure.openThemeVote();
+  }
+
+  /**
+   * Advances the engine clock and resolves any expired timers.
+   * @param {number} [currentTime]
+   * @returns {Array<object>} Events emitted
+   */
+  tick(currentTime = this.clock()) {
+    return this.adventure.tick(currentTime);
   }
 
   /**
@@ -60,13 +89,17 @@ export class Engine {
   handleMessage(message) {
     const events = [];
     if (!message || typeof message.text !== 'string' || !message.user) {
-      return { events, state: this.state };
+      return { events, state: this.getState() };
     }
 
     const trimmed = message.text.trim();
     if (!trimmed) {
-      return { events, state: this.state };
+      return { events, state: this.getState() };
     }
+
+    // Check timer expiration prior to processing command
+    const tickEvents = this.tick();
+    events.push(...tickEvents);
 
     // Every chatter who posts is tracked in the party
     this.trackChatter(message.user, message.displayName);
@@ -77,8 +110,14 @@ export class Engine {
       const command = parts[0].toLowerCase();
       const args = parts.slice(1);
 
-      // Scaffold echo dice roll (used for testing the message-in / events-out harness)
-      if (command === 'roll-test' || command === 'dice-test') {
+      if (command === 'theme') {
+        const idea = args.join(' ');
+        const themeEvents = this.adventure.handleThemeSuggestion(message.user, message.displayName, idea);
+        events.push(...themeEvents);
+      } else if (command === 'vote') {
+        const voteEvents = this.adventure.handleVote(message.user, args[0]);
+        events.push(...voteEvents);
+      } else if (command === 'roll-test' || command === 'dice-test') {
         const roll = rollD20(this.rng);
         events.push(createSayEvent(`🎲 @${message.displayName || message.user} rolled a ${roll}!`));
         events.push(createGameEvent('dice_roll', {
@@ -87,11 +126,24 @@ export class Engine {
           roll
         }));
       }
-
-      // Additional commands will be handled by subsequent slices (voting, combat, explore, go)
     }
 
-    return { events, state: this.state };
+    return { events, state: this.getState() };
+  }
+
+  /**
+   * Returns complete engine snapshot.
+   * @returns {object}
+   */
+  getState() {
+    return {
+      status: this.adventure.status,
+      theme: this.adventure.theme,
+      currentRoom: this.adventure.currentRoom,
+      dungeon: this.adventure.dungeon,
+      themeVote: this.adventure.themeVote,
+      party: this.state.party
+    };
   }
 }
 
