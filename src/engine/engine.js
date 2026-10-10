@@ -49,7 +49,7 @@ export class Engine {
    * @returns {Array<object>} Events emitted
    */
   tick(currentTime = this.clock()) {
-    return this.adventure.tick(currentTime);
+    return this.adventure.tick(currentTime, this.state.party);
   }
 
   /**
@@ -117,6 +117,12 @@ export class Engine {
       } else if (command === 'vote') {
         const voteEvents = this.adventure.handleVote(message.user, args[0]);
         events.push(...voteEvents);
+      } else if (command === 'explore') {
+        const exploreEvents = this.adventure.handleExplore(message.user, message.displayName, this.state.party);
+        events.push(...exploreEvents);
+      } else if (command === 'go') {
+        const goEvents = this.adventure.handleGo(message.user, message.displayName, args.join(' '));
+        events.push(...goEvents);
       } else if (command === 'roll-test' || command === 'dice-test') {
         const roll = rollD20(this.rng);
         events.push(createSayEvent(`🎲 @${message.displayName || message.user} rolled a ${roll}!`));
@@ -142,6 +148,7 @@ export class Engine {
       currentRoom: this.adventure.currentRoom,
       dungeon: this.adventure.dungeon,
       themeVote: this.adventure.themeVote,
+      exitVote: this.adventure.exitVote,
       party: this.state.party
     };
   }

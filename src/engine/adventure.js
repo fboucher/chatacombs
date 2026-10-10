@@ -137,10 +137,8 @@ export class Adventure {
     const totalVotes = counts[0] + counts[1] + counts[2];
 
     if (totalVotes === 0) {
-      // No votes -> classic fantasy wins
       winningIndex = 0;
     } else {
-      // Find plurality; in case of tie, first-registered wins
       let maxCount = -1;
       for (let i = 0; i < counts.length; i++) {
         if (counts[i] > maxCount) {
@@ -162,6 +160,7 @@ export class Adventure {
     this.status = 'active';
     this.currentRoom = this.dungeon.rooms[0]; // Entrance room
     this.themeVote = null;
+    this.exitVote = null;
 
     const entrance = this.currentRoom;
     const exitDirections = entrance.exits.map(e => e.direction);
@@ -187,16 +186,236 @@ export class Adventure {
   }
 
   /**
-   * Ticks time-based events (e.g. closing vote when timer expires).
+   * Handles !explore command in the current room.
+   * @param {string} user 
+   * @param {string} displayName 
+   * @param {Map<string, object>} [party] Active party map for trap resolution
+   * @returns {Array<object>} Events emitted
+   */
+  handleExplore(user, displayName, party = null) {
+    if (this.status !== 'active' || !this.currentRoom) return [];
+
+    // In a room with an undefeated monster, cannot explore
+    if ((this.currentRoom.type === 'monster' || this.currentRoom.type === 'boss') &&
+        this.currentRoom.monster && this.currentRoom.monster.hp > 0) {
+      return [
+        createSayEvent(`⚔️ A ${this.currentRoom.monster.name} blocks your way! Defeat it before exploring!`)
+      ];
+    }
+
+    const room = this.currentRoom;
+    if (room.exploration.searched) {
+      return [
+        createSayEvent(`🔍 This chamber has already been searched by the party.`)
+      ];
+    }
+
+    room.exploration.searched = true;
+    const events = [];
+    const name = displayName || user;
+
+    if (room.type === 'treasure' && room.exploration.hasLoot && room.exploration.loot) {
+      const loot = room.exploration.loot;
+      const itemDesc = loot.item ? ` and found a ${loot.item}` : '';
+      events.push(createSayEvent(`💎 @${name} searched the room and found a treasure chest with ${loot.gold} gold${itemDesc}!`));
+      events.push(createGameEvent('rare_loot', {
+        user: user.toLowerCase(),
+        gold: loot.gold,
+        item: loot.item
+      }));
+    } else if (room.type === 'trap' && room.exploration.hasTrap && room.exploration.trap) {
+      const trap = room.exploration.trap;
+      // Trap DC check
+      const d20 = Math.floor(this.rng() * 20) + 1;
+      if (d20 >= trap.dc) {
+        events.push(createSayEvent(`🛡️ @${name} spotted the ${trap.name} trap (DC ${trap.dc}, rolled ${d20}) and disarmed it safely!`));
+      } else {
+        events.push(createSayEvent(`💥 @${name} triggered the ${trap.name} trap! The party takes ${trap.damage} damage!`));
+        // Apply damage to active party
+        if (party) {
+          for (const member of party.values()) {
+            if (!member.isKnockedOut) {
+              member.hp = Math.max(0, member.hp - trap.damage);
+              if (member.hp === 0) {
+                member.isKnockedOut = true;
+                events.push(createGameEvent('player_knocked_out', {
+                  user: member.username,
+                  displayName: member.displayName,
+                  reason: trap.name
+                }));
+                events.push(createSayEvent(`💀 @${member.displayName} was knocked out by the trap!`));
+              }
+            }
+          }
+        }
+      }
+    } else if (room.type === 'empty' && room.exploration.hasLoot && room.exploration.loot) {
+      const loot = room.exploration.loot;
+      events.push(createSayEvent(`💰 @${name} searched the room and found a hidden pouch with ${loot.gold} gold!`));
+      events.push(createGameEvent('rare_loot', {
+        user: user.toLowerCase(),
+        gold: loot.gold,
+        item: null
+      }));
+    } else {
+      events.push(createSayEvent(`🔍 @${name} searched carefully, but found nothing of interest in this room.`));
+    }
+
+    return events;
+  }
+
+  /**
+   * Handles !go <direction> command to vote on room exits.
+   * @param {string} user 
+   * @param {string} displayName 
+   * @param {string} direction 
+   * @returns {Array<object>} Events emitted
+   */
+  handleGo(user, displayName, direction) {
+    if (this.status !== 'active' || !this.currentRoom) return [];
+    if (!direction || typeof direction !== 'string') return [];
+
+    // Monster check
+    if ((this.currentRoom.type === 'monster' || this.currentRoom.type === 'boss') &&
+        this.currentRoom.monster && this.currentRoom.monster.hp > 0) {
+      return [
+        createSayEvent(`⚔️ A ${this.currentRoom.monster.name} blocks all exits! You must defeat it first!`)
+      ];
+    }
+
+    const normDir = direction.trim().toLowerCase();
+    const validExit = this.currentRoom.exits.find(e => e.direction.toLowerCase() === normDir);
+    if (!validExit) {
+      // Not a valid exit for current room
+      return [];
+    }
+
+    const now = this.clock();
+
+    // If no exit vote is currently open, open one
+    if (!this.exitVote) {
+      this.exitVote = {
+        openedAt: now,
+        durationMs: this.voteDurationMs,
+        votes: new Map(), // username -> direction
+        voteOrder: [normDir] // order of first time each direction was voted for (for tie breaks)
+      };
+      this.exitVote.votes.set(user.toLowerCase(), normDir);
+
+      return [
+        createSayEvent(
+          `🚪 @${displayName || user} voted to go "${validExit.direction}"! Exit vote open (1 min). Use !go <exit> to vote!`
+        )
+      ];
+    }
+
+    // Exit vote is already open: record vote
+    this.exitVote.votes.set(user.toLowerCase(), normDir);
+    if (!this.exitVote.voteOrder.includes(normDir)) {
+      this.exitVote.voteOrder.push(normDir);
+    }
+
+    // Silent per design doc (only 1 message per vote window)
+    return [];
+  }
+
+  /**
+   * Closes the exit vote and advances to the next room.
+   * @param {Map<string, object>} [party] Active party map to revive KO'd players
+   * @returns {Array<object>} Events emitted
+   */
+  closeExitVote(party = null) {
+    if (this.status !== 'active' || !this.exitVote || !this.currentRoom) return [];
+
+    // Tally votes
+    const tally = new Map();
+    for (const dir of this.exitVote.votes.values()) {
+      tally.set(dir, (tally.get(dir) || 0) + 1);
+    }
+
+    if (tally.size === 0) {
+      this.exitVote = null;
+      return [createSayEvent(`⏱️ The exit vote expired with no votes. Choose a path with !go <exit>!`)];
+    }
+
+    // Determine winner with majority, tie broken by first exit voted for (order in voteOrder)
+    let winningDirection = this.exitVote.voteOrder[0];
+    let maxVotes = -1;
+
+    for (const dir of this.exitVote.voteOrder) {
+      const count = tally.get(dir) || 0;
+      if (count > maxVotes) {
+        maxVotes = count;
+        winningDirection = dir;
+      }
+    }
+
+    const exit = this.currentRoom.exits.find(e => e.direction.toLowerCase() === winningDirection);
+    this.exitVote = null;
+
+    if (!exit) return [];
+
+    const nextRoom = this.dungeon.rooms.find(r => r.id === exit.targetRoomId);
+    if (!nextRoom) return [];
+
+    this.currentRoom = nextRoom;
+
+    // Revive knocked-out players on room change
+    if (party) {
+      for (const member of party.values()) {
+        if (member.isKnockedOut || member.hp <= 0) {
+          member.isKnockedOut = false;
+          member.hp = Math.max(5, Math.floor(member.maxHp * 0.25)); // 5 HP or 25% max HP
+        }
+      }
+    }
+
+    const exitDirections = nextRoom.exits.map(e => e.direction);
+    const events = [
+      createSayEvent(
+        `🚶 The party moves ${exit.direction} into ${nextRoom.name} (Room ${nextRoom.roomNumber}/${this.dungeon.totalRooms})!`
+      ),
+      createGameEvent('room_entered', {
+        roomNumber: nextRoom.roomNumber,
+        roomType: nextRoom.type,
+        roomName: nextRoom.name,
+        exits: exitDirections
+      })
+    ];
+
+    if (nextRoom.type === 'boss' && nextRoom.monster) {
+      events.push(createSayEvent(`⚡ A terrifying aura fills the room! The Boss ${nextRoom.monster.name} appears!`));
+      events.push(createGameEvent('boss_appears', {
+        monster: nextRoom.monster.name,
+        hp: nextRoom.monster.hp,
+        maxHp: nextRoom.monster.maxHp
+      }));
+    } else if (nextRoom.type === 'monster' && nextRoom.monster) {
+      events.push(createSayEvent(`⚔️ A ${nextRoom.monster.name} lurks in the shadows with ${nextRoom.monster.hp} HP!`));
+    }
+
+    return events;
+  }
+
+  /**
+   * Ticks time-based events (closing theme vote or exit vote).
    * @param {number} [currentTime]
+   * @param {Map<string, object>} [party]
    * @returns {Array<object>}
    */
-  tick(currentTime = this.clock()) {
+  tick(currentTime = this.clock(), party = null) {
     if (this.status === 'voting' && this.themeVote) {
       if (currentTime >= this.themeVote.openedAt + this.themeVote.durationMs) {
         return this.closeThemeVote();
       }
     }
+
+    if (this.status === 'active' && this.exitVote) {
+      if (currentTime >= this.exitVote.openedAt + this.exitVote.durationMs) {
+        return this.closeExitVote(party);
+      }
+    }
+
     return [];
   }
 }
