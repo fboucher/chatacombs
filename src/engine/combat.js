@@ -80,9 +80,10 @@ export class CombatResolver {
    * 
    * @param {object} monster 
    * @param {Map<string, object>} party 
+   * @param {number} [currentTime]
    * @returns {{ events: Array<object>, monsterDefeated: boolean, partyWiped: boolean }}
    */
-  resolveRound(monster, party) {
+  resolveRound(monster, party, currentTime = this.clock()) {
     const events = [];
     if (!monster || monster.hp <= 0) {
       this.isFinished = true;
@@ -170,10 +171,16 @@ export class CombatResolver {
     }
 
     // 3. Monster Strikes Back (if alive)
+    // Only active members (spoke within 15m window) can be targeted
+    const windowMs = 15 * 60 * 1000;
+    const cutoff = (currentTime !== undefined ? currentTime : this.clock()) - windowMs;
+
+    const isActive = (p) => p.lastSeenAt === undefined || p.lastSeenAt >= cutoff;
+
     if (monster.hp > 0) {
-      const livingPlayers = [...party.values()].filter(p => !p.isKnockedOut && p.hp > 0);
+      const livingPlayers = [...party.values()].filter(p => !p.isKnockedOut && p.hp > 0 && isActive(p));
       if (livingPlayers.length > 0) {
-        // Pick a random living player to target
+        // Pick a random living active player to target
         const target = livingPlayers[Math.floor(this.rng() * livingPlayers.length)];
         const targetAct = this.actions.get(target.username);
         const isDefending = targetAct && targetAct.action === 'defend';
@@ -206,9 +213,9 @@ export class CombatResolver {
       }
     }
 
-    // 4. Check for party wipe
-    const partyMembers = [...party.values()];
-    const partyWiped = partyMembers.length > 0 && partyMembers.every(p => p.isKnockedOut || p.hp <= 0);
+    // 4. Check for party wipe (across active players)
+    const activePartyMembers = [...party.values()].filter(isActive);
+    const partyWiped = activePartyMembers.length > 0 && activePartyMembers.every(p => p.isKnockedOut || p.hp <= 0);
 
     if (partyWiped) {
       this.isFinished = true;

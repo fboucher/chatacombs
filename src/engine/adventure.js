@@ -39,23 +39,126 @@ export class Adventure {
     this.nudgeIntervalMs = options.nudgeIntervalMs ?? 600000;
     this.abandonTimeoutMs = options.abandonTimeoutMs ?? 3600000; // 60 minutes default
 
-    this.status = 'idle'; // 'idle' | 'voting' | 'active' | 'cleared' | 'wiped' | 'abandoned'
-    this.theme = null;
-    this.dungeon = null;
-    this.currentRoom = null;
+    this.id = options.id || null;
+    this.channel = options.channel || 'default';
+    this.adventureRepo = options.adventureRepo || null;
+    this.partyRepo = options.partyRepo || null;
+    this.playerRepo = options.playerRepo || null;
+
+    this.status = options.status || 'idle'; // 'idle' | 'voting' | 'active' | 'cleared' | 'wiped' | 'abandoned'
+    this.theme = options.theme || null;
+    this.dungeon = options.dungeon || null;
+    this.currentRoom = options.currentRoom || null;
     this.themeVote = null;
     this.exitVote = null;
     this.combat = null;
 
-    this.startedAt = null;
-    this.endedAt = null;
-    this.monstersSlain = 0;
-    this.roomsVisited = new Set();
-    this.roomsCleared = new Set();
-    this.outcomeSnapshot = null;
+    this.startedAt = options.startedAt ? (typeof options.startedAt === 'number' ? options.startedAt : new Date(options.startedAt).getTime()) : null;
+    this.endedAt = options.endedAt ? (typeof options.endedAt === 'number' ? options.endedAt : new Date(options.endedAt).getTime()) : null;
+    this.monstersSlain = options.monstersSlain || 0;
+    this.roomsVisited = options.roomsVisited || new Set();
+    this.roomsCleared = options.roomsCleared || new Set();
+    this.outcomeSnapshot = options.outcomeSnapshot || null;
 
     this.lastMessageAt = this.clock();
     this.lastNudgeAt = this.clock();
+  }
+
+  /**
+   * Distributes XP and gold pool equally across all active party members (within 15m window).
+   * Remainder handling: exact integer division floor(total / N), with remainder distributed 
+   * 1 unit each to the earliest active members (deterministic tie-breaking).
+   * Active knocked-out players receive their equal share. Inactive (>15m) members get nothing.
+   *
+   * @param {{ xp?: number, gold?: number, monstersSlain?: number }} pool
+   * @param {Map<string, object>} [party]
+   * @param {number} [currentTime]
+   * @returns {Array<object>} Events emitted for rewards / level ups
+   */
+  distributeRewards({ xp = 0, gold = 0, monstersSlain = 0 } = {}, party = null, currentTime = this.clock()) {
+    if (!party || party.size === 0) return [];
+    if (xp <= 0 && gold <= 0 && monstersSlain <= 0) return [];
+
+    const windowMs = 15 * 60 * 1000;
+    const cutoff = currentTime - windowMs;
+
+    // Filter active members within 15-minute sliding window (KO'd members are included)
+    const activeMembers = [...party.values()].filter(m => (
+      m.lastSeenAt === undefined || m.lastSeenAt >= cutoff
+    ));
+
+    if (activeMembers.length === 0) return [];
+
+    const n = activeMembers.length;
+    const baseShareXp = Math.floor(xp / n);
+    const remXp = xp % n;
+    const baseShareGold = Math.floor(gold / n);
+    const remGold = gold % n;
+
+    const events = [];
+    const nowIso = new Date(currentTime).toISOString();
+
+    for (let i = 0; i < n; i++) {
+      const member = activeMembers[i];
+      const memberXp = baseShareXp + (i < remXp ? 1 : 0);
+      const memberGold = baseShareGold + (i < remGold ? 1 : 0);
+
+      if (this.playerRepo) {
+        try {
+          const prev = this.playerRepo.getPlayer(this.channel, member.username);
+          const updated = this.playerRepo.addRewards(this.channel, member.username, {
+            xp: memberXp,
+            gold: memberGold,
+            monstersSlain: monstersSlain
+          }, nowIso);
+
+          if (prev && updated.level > prev.level) {
+            events.push(createSayEvent(
+              `⭐ LEVEL UP! @${member.displayName || member.username} has reached Level ${updated.level}!`
+            ));
+            events.push(createGameEvent('player_level_up', {
+              user: member.username,
+              displayName: member.displayName || member.username,
+              level: updated.level,
+              xp: updated.xp
+            }));
+          }
+        } catch (err) {
+          // Player record might not exist if added purely through fake party map in tests
+        }
+      }
+    }
+
+    if (xp > 0 || gold > 0) {
+      events.push(createSayEvent(
+        `💰 Rewards shared! ${xp} XP and ${gold} gold split among ${n} active heroes (+${baseShareXp} XP, +${baseShareGold}g each)!`
+      ));
+      events.push(createGameEvent('rewards_distributed', {
+        totalXp: xp,
+        totalGold: gold,
+        recipientCount: n,
+        baseShareXp,
+        baseShareGold,
+        recipients: activeMembers.map(m => m.username)
+      }));
+    }
+
+    return events;
+  }
+
+  /**
+   * Persists a party member's runtime stats to partyRepo if available.
+   * @param {object} member
+   */
+  syncMember(member) {
+    if (this.partyRepo && this.id && member) {
+      this.partyRepo.updateMemberState(this.id, member.username, {
+        hp: member.hp,
+        maxHp: member.maxHp,
+        isKnockedOut: member.isKnockedOut,
+        potions: member.potions
+      });
+    }
   }
 
   /**
@@ -103,6 +206,10 @@ export class Adventure {
     this.exitVote = null;
     this.combat = null;
 
+    if (this.adventureRepo && this.id) {
+      this.adventureRepo.updateStatus(this.id, 'abandoned', new Date(this.endedAt).toISOString());
+    }
+
     const snapshot = this.buildOutcomeSnapshot('abandoned', party);
     return [
       createSayEvent(`🛑 The adventure has ended (${reason === 'idle_timeout' ? 'chat idle for 60m' : 'stream concluded'}).`),
@@ -134,6 +241,11 @@ export class Adventure {
     const choices = ['classic fantasy', shuffled[0], shuffled[1]];
 
     const now = this.clock();
+    if (this.adventureRepo) {
+      const row = this.adventureRepo.createAdventure(this.channel, 'pending_vote', 0, 'voting', new Date(now).toISOString());
+      this.id = row.id;
+    }
+
     this.themeVote = {
       choices,
       customSuggestions: 0,
@@ -205,9 +317,10 @@ export class Adventure {
 
   /**
    * Closes the theme vote and transitions to 'active' dungeon.
+   * @param {Map<string, object>} [party]
    * @returns {Array<object>} Events emitted
    */
-  closeThemeVote() {
+  closeThemeVote(party = null) {
     if (this.status !== 'voting' || !this.themeVote) return [];
 
     // Tally votes
@@ -248,6 +361,47 @@ export class Adventure {
     this.roomsVisited.add(this.currentRoom.id);
     this.themeVote = null;
     this.exitVote = null;
+
+    if (this.adventureRepo) {
+      if (!this.id) {
+        const row = this.adventureRepo.createAdventure(
+          this.channel,
+          winningTheme,
+          this.dungeon.totalRooms,
+          'active',
+          new Date(this.startedAt).toISOString()
+        );
+        this.id = row.id;
+      } else {
+        this.adventureRepo.updateAdventure(this.id, {
+          theme: winningTheme,
+          status: 'active',
+          totalRooms: this.dungeon.totalRooms,
+          currentRoomIndex: 0
+        });
+      }
+      this.adventureRepo.saveRooms(this.id, this.dungeon.rooms);
+    }
+
+    // Persist current party members to DB if available
+    if (this.partyRepo && this.id && party) {
+      for (const member of party.values()) {
+        this.partyRepo.upsertMember(this.id, member.username, {
+          hp: member.hp,
+          maxHp: member.maxHp,
+          isKnockedOut: member.isKnockedOut,
+          potions: member.potions
+        }, member.lastSeenAt || this.startedAt);
+
+        if (this.playerRepo) {
+          try {
+            this.playerRepo.addRewards(this.channel, member.username, { adventuresJoined: 1 }, new Date(this.startedAt).toISOString());
+          } catch (err) {
+            // Player may not exist yet in purely mocked test objects
+          }
+        }
+      }
+    }
 
     const entrance = this.currentRoom;
     const exitDirections = entrance.exits.map(e => e.direction);
@@ -298,6 +452,13 @@ export class Adventure {
     }
 
     room.exploration.searched = true;
+    if (this.adventureRepo && this.id) {
+      this.adventureRepo.updateRoomState(this.id, room.roomNumber, {
+        cleared: room.cleared,
+        looted: 1,
+        monster: room.monster
+      });
+    }
     const events = [];
     const name = displayName || user;
 
@@ -310,6 +471,11 @@ export class Adventure {
         gold: loot.gold,
         item: loot.item
       }));
+      // Distribute room loot gold equally to active party
+      if (loot.gold > 0) {
+        const rewardEvents = this.distributeRewards({ gold: loot.gold }, party);
+        events.push(...rewardEvents);
+      }
     } else if (room.type === 'trap' && room.exploration.hasTrap && room.exploration.trap) {
       const trap = room.exploration.trap;
       // Trap DC check
@@ -318,10 +484,13 @@ export class Adventure {
         events.push(createSayEvent(`🛡️ @${name} spotted the ${trap.name} trap (DC ${trap.dc}, rolled ${d20}) and disarmed it safely!`));
       } else {
         events.push(createSayEvent(`💥 @${name} triggered the ${trap.name} trap! The party takes ${trap.damage} damage!`));
-        // Apply damage to active party
+        // Apply damage to active party (within 15 minute sliding window)
         if (party) {
+          const windowMs = 15 * 60 * 1000;
+          const cutoff = this.clock() - windowMs;
           for (const member of party.values()) {
-            if (!member.isKnockedOut) {
+            const isActive = member.lastSeenAt === undefined || member.lastSeenAt >= cutoff;
+            if (!member.isKnockedOut && isActive) {
               member.hp = Math.max(0, member.hp - trap.damage);
               if (member.hp === 0) {
                 member.isKnockedOut = true;
@@ -332,6 +501,7 @@ export class Adventure {
                 }));
                 events.push(createSayEvent(`💀 @${member.displayName} was knocked out by the trap!`));
               }
+              this.syncMember(member);
             }
           }
         }
@@ -344,6 +514,11 @@ export class Adventure {
         gold: loot.gold,
         item: null
       }));
+      // Distribute empty room loot gold equally to active party
+      if (loot.gold > 0) {
+        const rewardEvents = this.distributeRewards({ gold: loot.gold }, party);
+        events.push(...rewardEvents);
+      }
     } else {
       events.push(createSayEvent(`🔍 @${name} searched carefully, but found nothing of interest in this room.`));
     }
@@ -447,8 +622,24 @@ export class Adventure {
     const nextRoom = this.dungeon.rooms.find(r => r.id === exit.targetRoomId);
     if (!nextRoom) return [];
 
+    // Departing room is cleared
+    const prevRoom = this.currentRoom;
+    prevRoom.cleared = true;
+    this.roomsCleared.add(prevRoom.id);
+    if (this.adventureRepo && this.id) {
+      this.adventureRepo.updateRoomState(this.id, prevRoom.roomNumber, {
+        cleared: 1,
+        looted: prevRoom.exploration?.searched ? 1 : 0,
+        monster: prevRoom.monster
+      });
+    }
+
     this.currentRoom = nextRoom;
     this.roomsVisited.add(nextRoom.id);
+
+    if (this.adventureRepo && this.id) {
+      this.adventureRepo.updateCurrentRoomIndex(this.id, nextRoom.roomNumber - 1);
+    }
 
     // Revive knocked-out players on room change
     if (party) {
@@ -456,6 +647,7 @@ export class Adventure {
         if (member.isKnockedOut || member.hp <= 0) {
           member.isKnockedOut = false;
           member.hp = Math.max(5, Math.floor(member.maxHp * 0.25)); // 5 HP or 25% max HP
+          this.syncMember(member);
         }
       }
     }
@@ -540,6 +732,7 @@ export class Adventure {
       player.potions--;
       const healAmount = Math.min(player.maxHp - player.hp, 10);
       player.hp = Math.min(player.maxHp, player.hp + 10);
+      this.syncMember(player);
       return [
         createSayEvent(`🧪 @${player.displayName} drank a potion and restored ${healAmount} HP! (${player.hp}/${player.maxHp})`),
         createGameEvent('player_healed', {
@@ -574,6 +767,8 @@ export class Adventure {
       targetMember.isKnockedOut = false;
       const healAmount = Math.min(targetMember.maxHp - targetMember.hp, 10);
       targetMember.hp = Math.min(targetMember.maxHp, targetMember.hp + 10);
+      this.syncMember(player);
+      this.syncMember(targetMember);
       return [
         createSayEvent(`💖 @${player.displayName} healed @${targetMember.displayName} for ${healAmount} HP!`),
         createGameEvent('player_healed', {
@@ -626,7 +821,7 @@ export class Adventure {
       if (!isIdle) {
         this.themeVote.elapsedMs += Math.max(0, delta);
         if (this.themeVote.elapsedMs >= this.themeVote.durationMs) {
-          const voteEvents = this.closeThemeVote();
+          const voteEvents = this.closeThemeVote(party);
           events.push(...voteEvents);
           return events;
         }
@@ -641,18 +836,47 @@ export class Adventure {
       if (!isIdle) {
         this.combat.elapsedMs += Math.max(0, delta);
         if (this.combat.elapsedMs >= this.combat.roundDurationMs) {
-          const result = this.combat.resolveRound(this.currentRoom.monster, party);
+          const result = this.combat.resolveRound(this.currentRoom.monster, party, currentTime);
+          // Sync any party members updated during combat
+          if (party && this.partyRepo && this.id) {
+            for (const m of party.values()) {
+              this.syncMember(m);
+            }
+          }
           if (result.monsterDefeated) {
+            const defeatedMonster = this.currentRoom.monster;
             this.combat = null;
             this.currentRoom.cleared = true;
             this.monstersSlain++;
             this.roomsCleared.add(this.currentRoom.id);
+
+            // Distribute monster XP and gold equally to active party
+            if (defeatedMonster) {
+              const rewardEvents = this.distributeRewards({
+                xp: defeatedMonster.xp || 0,
+                gold: defeatedMonster.gold || 0,
+                monstersSlain: 1
+              }, party, currentTime);
+              result.events.push(...rewardEvents);
+            }
+
+            if (this.adventureRepo && this.id) {
+              this.adventureRepo.updateRoomState(this.id, this.currentRoom.roomNumber, {
+                cleared: 1,
+                looted: this.currentRoom.exploration?.searched,
+                monster: this.currentRoom.monster
+              });
+            }
 
             // Check if final boss was defeated
             if (this.currentRoom.type === 'boss') {
               this.status = 'cleared';
               this.endedAt = currentTime;
               const snapshot = this.buildOutcomeSnapshot('cleared', party);
+
+              if (this.adventureRepo && this.id) {
+                this.adventureRepo.updateStatus(this.id, 'cleared', new Date(this.endedAt).toISOString());
+              }
 
               result.events.push(createSayEvent(
                 `🏆 VICTORY! The Boss ${this.currentRoom.monster.name} has fallen! The dungeon has been cleared in ${Math.round(snapshot.durationMs / 1000)}s!`
@@ -670,6 +894,10 @@ export class Adventure {
             this.endedAt = currentTime;
             this.combat = null;
             const snapshot = this.buildOutcomeSnapshot('wiped', party);
+
+            if (this.adventureRepo && this.id) {
+              this.adventureRepo.updateStatus(this.id, 'wiped', new Date(this.endedAt).toISOString());
+            }
 
             result.events.push(createGameEvent('party_wiped', {
               roomNumber: this.currentRoom.roomNumber,
