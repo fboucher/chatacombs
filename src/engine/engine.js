@@ -3,6 +3,7 @@ import { createSayEvent, createGameEvent } from './events.js';
 import { Adventure } from './adventure.js';
 import { PlayerRepository } from '../db/playerRepo.js';
 import { AdventureRepository } from '../db/adventureRepo.js';
+import { PartyRepository, INACTIVITY_WINDOW_MS } from '../db/partyRepo.js';
 
 /**
  * Chatacombs Core Engine.
@@ -20,6 +21,7 @@ export class Engine {
    * @param {import('better-sqlite3').Database} [options.db]
    * @param {PlayerRepository} [options.playerRepo]
    * @param {AdventureRepository} [options.adventureRepo]
+   * @param {PartyRepository} [options.partyRepo]
    * @param {object} [options.initialState={}]
    */
   constructor(options = {}) {
@@ -33,6 +35,7 @@ export class Engine {
     this.db = options.db || null;
     this.playerRepo = options.playerRepo || (this.db ? new PlayerRepository(this.db) : null);
     this.adventureRepo = options.adventureRepo || (this.db ? new AdventureRepository(this.db) : null);
+    this.partyRepo = options.partyRepo || (this.db ? new PartyRepository(this.db) : null);
 
     this.adventure = new Adventure({
       rng: this.rng,
@@ -41,7 +44,8 @@ export class Engine {
       inactivityThresholdMs: this.inactivityThresholdMs,
       nudgeIntervalMs: this.nudgeIntervalMs,
       channel: this.channel,
-      adventureRepo: this.adventureRepo
+      adventureRepo: this.adventureRepo,
+      partyRepo: this.partyRepo
     });
 
     this.state = {
@@ -80,6 +84,7 @@ export class Engine {
       nudgeIntervalMs: this.nudgeIntervalMs,
       channel: this.channel,
       adventureRepo: this.adventureRepo,
+      partyRepo: this.partyRepo,
       id: restored.id,
       theme: restored.theme,
       status: restored.status,
@@ -90,6 +95,23 @@ export class Engine {
       },
       currentRoom: restored.rooms[restored.currentRoomIndex] || restored.rooms[0]
     });
+
+    // Restore party members from database if partyRepo is present
+    if (this.partyRepo && restored.id) {
+      const dbMembers = this.partyRepo.getAllMembers(restored.id);
+      for (const m of dbMembers) {
+        const lastSeenMs = new Date(m.last_action_at).getTime();
+        this.state.party.set(m.username, {
+          username: m.username,
+          displayName: m.username, // Will update when they speak again
+          hp: m.hp,
+          maxHp: m.max_hp,
+          isKnockedOut: Boolean(m.is_knocked_out),
+          potions: m.potions,
+          lastSeenAt: lastSeenMs
+        });
+      }
+    }
 
     return this.adventure;
   }
@@ -121,6 +143,23 @@ export class Engine {
   }
 
   /**
+   * Returns the list of active party members within the 15-minute sliding window.
+   * @param {number} [now]
+   * @param {number} [windowMs=900000]
+   * @returns {Array<object>}
+   */
+  getActiveParty(now = this.clock(), windowMs = INACTIVITY_WINDOW_MS) {
+    const cutoff = now - windowMs;
+    const active = [];
+    for (const member of this.state.party.values()) {
+      if (member.lastSeenAt >= cutoff) {
+        active.push(member);
+      }
+    }
+    return active;
+  }
+
+  /**
    * Registers or updates a chatter in the active party.
    * Anyone who chatted in the last 15 minutes is automatically in the party.
    * @param {string} user 
@@ -149,6 +188,15 @@ export class Engine {
 
     if (this.playerRepo) {
       this.playerRepo.upsertPlayer(this.channel, username, displayName || user);
+    }
+
+    if (this.partyRepo && this.adventure.id) {
+      this.partyRepo.upsertMember(this.adventure.id, username, {
+        hp: member.hp,
+        maxHp: member.maxHp,
+        isKnockedOut: member.isKnockedOut,
+        potions: member.potions
+      }, now);
     }
 
     return member;

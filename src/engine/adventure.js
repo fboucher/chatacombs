@@ -42,6 +42,7 @@ export class Adventure {
     this.id = options.id || null;
     this.channel = options.channel || 'default';
     this.adventureRepo = options.adventureRepo || null;
+    this.partyRepo = options.partyRepo || null;
 
     this.status = options.status || 'idle'; // 'idle' | 'voting' | 'active' | 'cleared' | 'wiped' | 'abandoned'
     this.theme = options.theme || null;
@@ -60,6 +61,21 @@ export class Adventure {
 
     this.lastMessageAt = this.clock();
     this.lastNudgeAt = this.clock();
+  }
+
+  /**
+   * Persists a party member's runtime stats to partyRepo if available.
+   * @param {object} member
+   */
+  syncMember(member) {
+    if (this.partyRepo && this.id && member) {
+      this.partyRepo.updateMemberState(this.id, member.username, {
+        hp: member.hp,
+        maxHp: member.maxHp,
+        isKnockedOut: member.isKnockedOut,
+        potions: member.potions
+      });
+    }
   }
 
   /**
@@ -218,9 +234,10 @@ export class Adventure {
 
   /**
    * Closes the theme vote and transitions to 'active' dungeon.
+   * @param {Map<string, object>} [party]
    * @returns {Array<object>} Events emitted
    */
-  closeThemeVote() {
+  closeThemeVote(party = null) {
     if (this.status !== 'voting' || !this.themeVote) return [];
 
     // Tally votes
@@ -281,6 +298,18 @@ export class Adventure {
         });
       }
       this.adventureRepo.saveRooms(this.id, this.dungeon.rooms);
+    }
+
+    // Persist current party members to DB if available
+    if (this.partyRepo && this.id && party) {
+      for (const member of party.values()) {
+        this.partyRepo.upsertMember(this.id, member.username, {
+          hp: member.hp,
+          maxHp: member.maxHp,
+          isKnockedOut: member.isKnockedOut,
+          potions: member.potions
+        }, member.lastSeenAt || this.startedAt);
+      }
     }
 
     const entrance = this.currentRoom;
@@ -359,10 +388,13 @@ export class Adventure {
         events.push(createSayEvent(`🛡️ @${name} spotted the ${trap.name} trap (DC ${trap.dc}, rolled ${d20}) and disarmed it safely!`));
       } else {
         events.push(createSayEvent(`💥 @${name} triggered the ${trap.name} trap! The party takes ${trap.damage} damage!`));
-        // Apply damage to active party
+        // Apply damage to active party (within 15 minute sliding window)
         if (party) {
+          const windowMs = 15 * 60 * 1000;
+          const cutoff = this.clock() - windowMs;
           for (const member of party.values()) {
-            if (!member.isKnockedOut) {
+            const isActive = member.lastSeenAt === undefined || member.lastSeenAt >= cutoff;
+            if (!member.isKnockedOut && isActive) {
               member.hp = Math.max(0, member.hp - trap.damage);
               if (member.hp === 0) {
                 member.isKnockedOut = true;
@@ -373,6 +405,7 @@ export class Adventure {
                 }));
                 events.push(createSayEvent(`💀 @${member.displayName} was knocked out by the trap!`));
               }
+              this.syncMember(member);
             }
           }
         }
@@ -501,6 +534,7 @@ export class Adventure {
         if (member.isKnockedOut || member.hp <= 0) {
           member.isKnockedOut = false;
           member.hp = Math.max(5, Math.floor(member.maxHp * 0.25)); // 5 HP or 25% max HP
+          this.syncMember(member);
         }
       }
     }
@@ -585,6 +619,7 @@ export class Adventure {
       player.potions--;
       const healAmount = Math.min(player.maxHp - player.hp, 10);
       player.hp = Math.min(player.maxHp, player.hp + 10);
+      this.syncMember(player);
       return [
         createSayEvent(`🧪 @${player.displayName} drank a potion and restored ${healAmount} HP! (${player.hp}/${player.maxHp})`),
         createGameEvent('player_healed', {
@@ -619,6 +654,8 @@ export class Adventure {
       targetMember.isKnockedOut = false;
       const healAmount = Math.min(targetMember.maxHp - targetMember.hp, 10);
       targetMember.hp = Math.min(targetMember.maxHp, targetMember.hp + 10);
+      this.syncMember(player);
+      this.syncMember(targetMember);
       return [
         createSayEvent(`💖 @${player.displayName} healed @${targetMember.displayName} for ${healAmount} HP!`),
         createGameEvent('player_healed', {
@@ -671,7 +708,7 @@ export class Adventure {
       if (!isIdle) {
         this.themeVote.elapsedMs += Math.max(0, delta);
         if (this.themeVote.elapsedMs >= this.themeVote.durationMs) {
-          const voteEvents = this.closeThemeVote();
+          const voteEvents = this.closeThemeVote(party);
           events.push(...voteEvents);
           return events;
         }
@@ -686,7 +723,13 @@ export class Adventure {
       if (!isIdle) {
         this.combat.elapsedMs += Math.max(0, delta);
         if (this.combat.elapsedMs >= this.combat.roundDurationMs) {
-          const result = this.combat.resolveRound(this.currentRoom.monster, party);
+          const result = this.combat.resolveRound(this.currentRoom.monster, party, currentTime);
+          // Sync any party members updated during combat
+          if (party && this.partyRepo && this.id) {
+            for (const m of party.values()) {
+              this.syncMember(m);
+            }
+          }
           if (result.monsterDefeated) {
             this.combat = null;
             this.currentRoom.cleared = true;
