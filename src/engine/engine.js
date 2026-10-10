@@ -4,6 +4,7 @@ import { Adventure } from './adventure.js';
 import { PlayerRepository } from '../db/playerRepo.js';
 import { AdventureRepository } from '../db/adventureRepo.js';
 import { PartyRepository, INACTIVITY_WINDOW_MS } from '../db/partyRepo.js';
+import { ChatQnaHandler } from '../ai/chatQna.js';
 
 /**
  * Chatacombs Core Engine.
@@ -18,10 +19,12 @@ export class Engine {
    * @param {number} [options.inactivityThresholdMs=120000]
    * @param {number} [options.nudgeIntervalMs=600000]
    * @param {string} [options.channel='default']
+   * @param {string} [options.botName='CB']
    * @param {import('better-sqlite3').Database} [options.db]
    * @param {PlayerRepository} [options.playerRepo]
    * @param {AdventureRepository} [options.adventureRepo]
    * @param {PartyRepository} [options.partyRepo]
+   * @param {ChatQnaHandler} [options.chatQna]
    * @param {object} [options.initialState={}]
    */
   constructor(options = {}) {
@@ -31,11 +34,16 @@ export class Engine {
     this.inactivityThresholdMs = options.inactivityThresholdMs ?? 120000;
     this.nudgeIntervalMs = options.nudgeIntervalMs ?? 600000;
     this.channel = (options.channel || 'default').toLowerCase();
+    this.botName = options.botName || process.env.BOT_NAME || 'CB';
 
     this.db = options.db || null;
     this.playerRepo = options.playerRepo || (this.db ? new PlayerRepository(this.db) : null);
     this.adventureRepo = options.adventureRepo || (this.db ? new AdventureRepository(this.db) : null);
     this.partyRepo = options.partyRepo || (this.db ? new PartyRepository(this.db) : null);
+    this.chatQna = options.chatQna || new ChatQnaHandler({
+      botName: this.botName,
+      clock: this.clock
+    });
 
     this.adventure = new Adventure({
       rng: this.rng,
@@ -298,9 +306,45 @@ export class Engine {
           roll
         }));
       }
+    } else if (this.chatQna && this.chatQna.isBotMentioned(trimmed)) {
+      // Non-command message mentioning bot -> in-character Q&A / flavor action
+      // Runs synchronously with fallback if AI client is offline/mocked
+      const qnaPromise = this.chatQna.handleMessage({
+        user: message.user,
+        displayName: message.displayName,
+        text: trimmed,
+        room: this.adventure.currentRoom,
+        dungeonContext: {
+          theme: this.adventure.theme,
+          totalRooms: this.adventure.dungeon?.totalRooms || 10
+        }
+      });
+
+      // Handle async or resolved result
+      if (qnaPromise && typeof qnaPromise.then === 'function') {
+        // If caller uses sync handleMessage, attach async handler or resolved lines
+        events._asyncQna = qnaPromise.then(lines => {
+          return lines.map(line => createSayEvent(line));
+        });
+      }
     }
 
     return { events, state: this.getState() };
+  }
+
+  /**
+   * Async message intake helper that awaits any async Q&A responses.
+   * @param {{ user: string, displayName: string, text: string, isBroadcaster?: boolean }} message
+   * @returns {Promise<{ events: Array<{ kind: 'say'|'game', [key: string]: any }>, state: object }>}
+   */
+  async handleMessageAsync(message) {
+    const res = this.handleMessage(message);
+    if (res.events._asyncQna) {
+      const qnaEvents = await res.events._asyncQna;
+      res.events.push(...qnaEvents);
+      delete res.events._asyncQna;
+    }
+    return res;
   }
 
   /**
