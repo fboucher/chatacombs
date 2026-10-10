@@ -12,17 +12,23 @@ export class Engine {
    * @param {() => number} [options.rng=Math.random]
    * @param {() => number} [options.clock=() => Date.now()]
    * @param {number} [options.voteDurationMs=60000]
+   * @param {number} [options.inactivityThresholdMs=120000]
+   * @param {number} [options.nudgeIntervalMs=600000]
    * @param {object} [options.initialState={}]
    */
   constructor(options = {}) {
     this.rng = options.rng || Math.random;
     this.clock = options.clock || (() => Date.now());
     this.voteDurationMs = options.voteDurationMs ?? 60000;
+    this.inactivityThresholdMs = options.inactivityThresholdMs ?? 120000;
+    this.nudgeIntervalMs = options.nudgeIntervalMs ?? 600000;
 
     this.adventure = new Adventure({
       rng: this.rng,
       clock: this.clock,
-      voteDurationMs: this.voteDurationMs
+      voteDurationMs: this.voteDurationMs,
+      inactivityThresholdMs: this.inactivityThresholdMs,
+      nudgeIntervalMs: this.nudgeIntervalMs
     });
 
     this.state = {
@@ -97,8 +103,11 @@ export class Engine {
       return { events, state: this.getState() };
     }
 
+    const now = this.clock();
+    this.adventure.recordActivity(now);
+
     // Check timer expiration prior to processing command
-    const tickEvents = this.tick();
+    const tickEvents = this.tick(now);
     events.push(...tickEvents);
 
     // Every chatter who posts is tracked in the party

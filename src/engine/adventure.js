@@ -28,11 +28,15 @@ export class Adventure {
    * @param {() => number} [options.rng=Math.random]
    * @param {() => number} [options.clock=() => Date.now()]
    * @param {number} [options.voteDurationMs=60000] 1-minute vote duration
+   * @param {number} [options.inactivityThresholdMs=120000] 2-minute inactivity threshold to pause timers
+   * @param {number} [options.nudgeIntervalMs=600000] 10-minute nudge interval for quiet chat
    */
   constructor(options = {}) {
     this.rng = options.rng || Math.random;
     this.clock = options.clock || (() => Date.now());
     this.voteDurationMs = options.voteDurationMs ?? 60000;
+    this.inactivityThresholdMs = options.inactivityThresholdMs ?? 120000;
+    this.nudgeIntervalMs = options.nudgeIntervalMs ?? 600000;
 
     this.status = 'idle'; // 'idle' | 'voting' | 'active' | 'cleared' | 'wiped' | 'abandoned'
     this.theme = null;
@@ -41,6 +45,17 @@ export class Adventure {
     this.themeVote = null;
     this.exitVote = null;
     this.combat = null;
+
+    this.lastMessageAt = this.clock();
+    this.lastNudgeAt = this.clock();
+  }
+
+  /**
+   * Records chatter activity to maintain active pacing.
+   * @param {number} [currentTime]
+   */
+  recordActivity(currentTime = this.clock()) {
+    this.lastMessageAt = currentTime;
   }
 
   /**
@@ -54,11 +69,14 @@ export class Adventure {
     const shuffled = [...BUILTIN_THEMES].sort(() => this.rng() - 0.5);
     const choices = ['classic fantasy', shuffled[0], shuffled[1]];
 
+    const now = this.clock();
     this.themeVote = {
       choices,
       customSuggestions: 0,
       votes: new Map(), // username -> choiceIndex (0, 1, or 2)
-      openedAt: this.clock(),
+      openedAt: now,
+      lastTickAt: now,
+      elapsedMs: 0,
       durationMs: this.voteDurationMs,
       announced: true
     };
@@ -299,6 +317,8 @@ export class Adventure {
     if (!this.exitVote) {
       this.exitVote = {
         openedAt: now,
+        lastTickAt: now,
+        elapsedMs: 0,
         durationMs: this.voteDurationMs,
         votes: new Map(), // username -> direction
         voteOrder: [normDir] // order of first time each direction was voted for (for tie breaks)
@@ -502,42 +522,84 @@ export class Adventure {
 
   /**
    * Ticks time-based events (closing theme vote, exit vote, or combat round).
+   * Pauses timers during chat inactivity lulls and sends occasional nudges.
    * @param {number} [currentTime]
    * @param {Map<string, object>} [party]
    * @returns {Array<object>}
    */
   tick(currentTime = this.clock(), party = null) {
+    const events = [];
+    const timeSinceMessage = currentTime - this.lastMessageAt;
+    const isIdle = timeSinceMessage >= this.inactivityThresholdMs;
+
+    // Quiet chat nudging: at most once every 10 minutes (nudgeIntervalMs)
+    if (timeSinceMessage >= this.nudgeIntervalMs && (currentTime - this.lastNudgeAt) >= this.nudgeIntervalMs) {
+      this.lastNudgeAt = currentTime;
+      if (this.status === 'voting') {
+        events.push(createSayEvent(`🗳️ The dungeon awaits your vote! Type !vote <1-3> or !theme <idea> to begin.`));
+      } else if (this.status === 'active' && this.combat && this.currentRoom?.monster) {
+        events.push(createSayEvent(`⚔️ The ${this.currentRoom.monster.name} glares across the chamber... Chat, rally the party with !attack, !defend, or !heal!`));
+      } else if (this.status === 'active' && this.currentRoom) {
+        events.push(createSayEvent(`🕯️ The torchlight flickers in the quiet halls... Type !explore or !go <exit> to continue the journey!`));
+      }
+    }
+
+    // 1. Theme Vote Timer (pauses during idle lulls)
     if (this.status === 'voting' && this.themeVote) {
-      if (currentTime >= this.themeVote.openedAt + this.themeVote.durationMs) {
-        return this.closeThemeVote();
-      }
-    }
+      const delta = currentTime - this.themeVote.lastTickAt;
+      this.themeVote.lastTickAt = currentTime;
 
-    if (this.status === 'active' && this.combat && this.currentRoom?.monster) {
-      if (currentTime >= this.combat.roundOpenedAt + this.combat.roundDurationMs) {
-        const result = this.combat.resolveRound(this.currentRoom.monster, party);
-        if (result.monsterDefeated) {
-          this.combat = null;
-          // Room is cleared
-          this.currentRoom.cleared = true;
-        } else if (result.partyWiped) {
-          this.status = 'wiped';
-          this.combat = null;
-          result.events.push(createGameEvent('party_wiped', {
-            roomNumber: this.currentRoom.roomNumber,
-            theme: this.theme
-          }));
+      if (!isIdle) {
+        this.themeVote.elapsedMs += Math.max(0, delta);
+        if (this.themeVote.elapsedMs >= this.themeVote.durationMs) {
+          const voteEvents = this.closeThemeVote();
+          events.push(...voteEvents);
+          return events;
         }
-        return result.events;
       }
     }
 
+    // 2. Combat Round Timer (pauses during idle lulls)
+    if (this.status === 'active' && this.combat && this.currentRoom?.monster) {
+      const delta = currentTime - this.combat.lastTickAt;
+      this.combat.lastTickAt = currentTime;
+
+      if (!isIdle) {
+        this.combat.elapsedMs += Math.max(0, delta);
+        if (this.combat.elapsedMs >= this.combat.roundDurationMs) {
+          const result = this.combat.resolveRound(this.currentRoom.monster, party);
+          if (result.monsterDefeated) {
+            this.combat = null;
+            this.currentRoom.cleared = true;
+          } else if (result.partyWiped) {
+            this.status = 'wiped';
+            this.combat = null;
+            result.events.push(createGameEvent('party_wiped', {
+              roomNumber: this.currentRoom.roomNumber,
+              theme: this.theme
+            }));
+          }
+          events.push(...result.events);
+          return events;
+        }
+      }
+    }
+
+    // 3. Exit Vote Timer (pauses during idle lulls)
     if (this.status === 'active' && this.exitVote) {
-      if (currentTime >= this.exitVote.openedAt + this.exitVote.durationMs) {
-        return this.closeExitVote(party);
+      const delta = currentTime - this.exitVote.lastTickAt;
+      this.exitVote.lastTickAt = currentTime;
+
+      if (!isIdle) {
+        this.exitVote.elapsedMs += Math.max(0, delta);
+        if (this.exitVote.elapsedMs >= this.exitVote.durationMs) {
+          const exitEvents = this.closeExitVote(party);
+          events.push(...exitEvents);
+          return events;
+        }
       }
     }
 
-    return [];
+    return events;
   }
 }

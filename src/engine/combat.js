@@ -20,6 +20,8 @@ export class CombatResolver {
 
     this.round = 1;
     this.roundOpenedAt = this.clock();
+    this.lastTickAt = this.clock();
+    this.elapsedMs = 0;
     this.actions = new Map(); // username -> { action, user, displayName, target, item }
     this.isFinished = false;
   }
@@ -30,6 +32,8 @@ export class CombatResolver {
   startEncounter() {
     this.round = 1;
     this.roundOpenedAt = this.clock();
+    this.lastTickAt = this.clock();
+    this.elapsedMs = 0;
     this.actions.clear();
     this.isFinished = false;
 
@@ -215,6 +219,8 @@ export class CombatResolver {
     // Prepare next round
     this.round++;
     this.roundOpenedAt = this.clock();
+    this.lastTickAt = this.clock();
+    this.elapsedMs = 0;
     this.actions.clear();
 
     events.push(createSayEvent(`⏳ Round ${this.round} begins! Choose your action: !attack, !defend, !item, !heal @user (1 min)`));
