@@ -226,3 +226,28 @@ test('combat integration - round advances on timer tick via Engine', () => {
   // Round should have advanced or ended
   assert.ok(engine.adventure.combat === null || engine.adventure.combat.round === 2);
 });
+
+test('combat - dice_roll events carry the monster HP after the hit for overlays', () => {
+  const resolver = new CombatResolver({ rng: () => 0.9 });
+  resolver.startEncounter();
+
+  const party = new Map([
+    ['bob', { username: 'bob', displayName: 'Bob', hp: 20, maxHp: 20, potions: 0, isKnockedOut: false }],
+    ['cy', { username: 'cy', displayName: 'Cy', hp: 20, maxHp: 20, potions: 0, isKnockedOut: false }]
+  ]);
+  const monster = { name: 'Cave Troll', hp: 100, maxHp: 100, attack: 1, defense: 10, xp: 1, gold: 1, loot: null };
+
+  resolver.registerAction(party.get('bob'), 'attack');
+  resolver.registerAction(party.get('cy'), 'attack');
+  const { events } = resolver.resolveRound(monster, party);
+
+  const rolls = events.filter(e => e.type === 'dice_roll');
+  assert.equal(rolls.length, 2);
+  assert.equal(rolls[0].displayName, 'Bob');
+  assert.equal(rolls[0].monster, 'Cave Troll');
+  assert.equal(rolls[0].monsterMaxHp, 100);
+  assert.equal(rolls[0].monsterHp, 100 - rolls[0].damage);
+  assert.equal(rolls[1].monsterHp, rolls[0].monsterHp - rolls[1].damage);
+  assert.equal(rolls[1].monsterHp, monster.hp);
+  assert.equal(rolls[0].modifier, rolls[0].total - rolls[0].roll);
+});

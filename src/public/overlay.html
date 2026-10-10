@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, height=1080">
+  <title>Chatacombs Overlay</title>
+  <style>
+/*__OVERLAY_CSS__*/
+  </style>
+</head>
+<body>
+  <div id="overlay" class="overlay">
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+
+    <div id="ribbon" class="ribbon is-idle">
+      <section class="ribbon-section ribbon-left">
+        <div class="room-line">
+          <span class="label">Room</span>
+          <span id="room-number" class="room-number">-</span><span class="room-sep">/</span><span id="room-total" class="room-total">-</span>
+          <span id="room-name" class="room-name"></span>
+        </div>
+        <div id="theme-badge" class="theme-badge is-empty">No adventure</div>
+        <div id="progress-dots" class="progress-dots"></div>
+      </section>
+
+      <section id="encounter" class="ribbon-section ribbon-center encounter">
+        <div class="enc-portrait">
+          <div id="enc-sprite" class="enc-sprite"></div>
+          <div id="enc-flash" class="enc-flash"></div>
+        </div>
+        <div class="enc-body">
+          <div id="enc-name" class="enc-name"></div>
+          <div class="hp-bar">
+            <div id="enc-hp-trail" class="hp-trail"></div>
+            <div id="enc-hp-fill" class="hp-fill"></div>
+            <span id="enc-hp-text" class="hp-text"></span>
+          </div>
+          <div id="enc-status" class="enc-status"></div>
+        </div>
+      </section>
+
+      <section class="ribbon-section ribbon-right">
+        <div class="party-line">
+          <span class="party-badge"><span class="icon-sword"></span>Party <span id="party-count">0</span></span>
+          <span id="ko-indicator" class="ko-indicator"><span class="icon-skull"></span>KO <span id="ko-count">0</span></span>
+        </div>
+        <div id="timer" class="timer">
+          <div class="timer-head">
+            <span id="timer-label" class="timer-label"></span>
+            <span id="timer-text" class="timer-text">0:00</span>
+          </div>
+          <div class="timer-bar"><div id="timer-fill" class="timer-fill"></div></div>
+          <div id="timer-tallies" class="timer-tallies"></div>
+        </div>
+      </section>
+    </div>
+
+    <div id="takeover" class="takeover">
+      <div class="takeover-vignette"></div>
+      <div id="takeover-fx" class="takeover-fx"></div>
+      <div class="takeover-banner">
+        <div id="takeover-title" class="takeover-title"></div>
+        <div id="takeover-sub" class="takeover-sub"></div>
+        <div id="takeover-stats" class="takeover-stats"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+/*__OVERLAY_JS__*/
+  </script>
+</body>
+</html>

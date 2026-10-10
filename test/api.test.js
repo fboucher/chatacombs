@@ -230,7 +230,7 @@ test('overlay auth - query key accepts valid OVERLAY_KEY and rejects unauthorize
     // Valid query key -> 200 HTML
     const res3 = await fetch(`${server.url}/overlay/mychannel?key=${OVERLAY_KEY}`);
     assert.equal(res3.status, 200);
-    assert.match(await res3.text(), /Chatacombs Overlay Ready/);
+    assert.match(await res3.text(), /id="ribbon"/);
 
     // Valid query key on overlay SSE -> 200 text/event-stream
     const controller = new AbortController();
