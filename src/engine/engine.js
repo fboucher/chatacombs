@@ -1,0 +1,206 @@
+import { rollD20 } from './dice.js';
+import { createSayEvent, createGameEvent } from './events.js';
+import { Adventure } from './adventure.js';
+
+/**
+ * Chatacombs Core Engine.
+ * Pure code engine: deterministic, testable, and offline.
+ */
+export class Engine {
+  /**
+   * @param {object} [options={}]
+   * @param {() => number} [options.rng=Math.random]
+   * @param {() => number} [options.clock=() => Date.now()]
+   * @param {number} [options.voteDurationMs=60000]
+   * @param {number} [options.inactivityThresholdMs=120000]
+   * @param {number} [options.nudgeIntervalMs=600000]
+   * @param {object} [options.initialState={}]
+   */
+  constructor(options = {}) {
+    this.rng = options.rng || Math.random;
+    this.clock = options.clock || (() => Date.now());
+    this.voteDurationMs = options.voteDurationMs ?? 60000;
+    this.inactivityThresholdMs = options.inactivityThresholdMs ?? 120000;
+    this.nudgeIntervalMs = options.nudgeIntervalMs ?? 600000;
+
+    this.adventure = new Adventure({
+      rng: this.rng,
+      clock: this.clock,
+      voteDurationMs: this.voteDurationMs,
+      inactivityThresholdMs: this.inactivityThresholdMs,
+      nudgeIntervalMs: this.nudgeIntervalMs
+    });
+
+    this.state = {
+      party: new Map(), // username -> { displayName, lastSeenAt, hp, maxHp, isKnockedOut, ... }
+      ...options.initialState
+    };
+  }
+
+  get status() {
+    return this.adventure.status;
+  }
+
+  /**
+   * Opens theme voting for a new adventure.
+   * @returns {Array<object>} Events emitted
+   */
+  startThemeVote() {
+    return this.adventure.openThemeVote();
+  }
+
+  /**
+   * Advances the engine clock and resolves any expired timers.
+   * @param {number} [currentTime]
+   * @returns {Array<object>} Events emitted
+   */
+  tick(currentTime = this.clock()) {
+    return this.adventure.tick(currentTime, this.state.party);
+  }
+
+  /**
+   * Explicitly abandons or ends the active adventure (e.g. stream ended).
+   * @param {string} [reason='stream_ended']
+   * @returns {Array<object>} Events emitted
+   */
+  abandonAdventure(reason = 'stream_ended') {
+    return this.adventure.abandonAdventure(reason, this.state.party);
+  }
+
+  /**
+   * Returns outcome snapshot if adventure has concluded.
+   * @returns {object|null}
+   */
+  getOutcomeSnapshot() {
+    return this.adventure.outcomeSnapshot;
+  }
+
+  /**
+   * Registers or updates a chatter in the active party.
+   * Anyone who chatted in the last 15 minutes is automatically in the party.
+   * @param {string} user 
+   * @param {string} displayName 
+   * @returns {object}
+   */
+  trackChatter(user, displayName) {
+    const username = user.toLowerCase();
+    const now = this.clock();
+    let member = this.state.party.get(username);
+    if (!member) {
+      member = {
+        username,
+        displayName: displayName || user,
+        hp: 20,
+        maxHp: 20,
+        isKnockedOut: false,
+        potions: 1,
+        lastSeenAt: now
+      };
+      this.state.party.set(username, member);
+    } else {
+      member.lastSeenAt = now;
+      if (displayName) member.displayName = displayName;
+    }
+    return member;
+  }
+
+  /**
+   * Main message intake entry.
+   * @param {{ user: string, displayName: string, text: string, isBroadcaster?: boolean }} message
+   * @returns {{ events: Array<{ kind: 'say'|'game', [key: string]: any }>, state: object }}
+   */
+  handleMessage(message) {
+    const events = [];
+    if (!message || typeof message.text !== 'string' || !message.user) {
+      return { events, state: this.getState() };
+    }
+
+    const trimmed = message.text.trim();
+    if (!trimmed) {
+      return { events, state: this.getState() };
+    }
+
+    const now = this.clock();
+    this.adventure.recordActivity(now);
+
+    // Check timer expiration prior to processing command
+    const tickEvents = this.tick(now);
+    events.push(...tickEvents);
+
+    // Every chatter who posts is tracked in the party
+    this.trackChatter(message.user, message.displayName);
+
+    // Command dispatching
+    if (trimmed.startsWith('!')) {
+      const parts = trimmed.slice(1).split(/\s+/);
+      const command = parts[0].toLowerCase();
+      const args = parts.slice(1);
+
+      if (command === 'theme') {
+        const idea = args.join(' ');
+        const themeEvents = this.adventure.handleThemeSuggestion(message.user, message.displayName, idea);
+        events.push(...themeEvents);
+      } else if (command === 'vote') {
+        const voteEvents = this.adventure.handleVote(message.user, args[0]);
+        events.push(...voteEvents);
+      } else if (command === 'explore') {
+        const exploreEvents = this.adventure.handleExplore(message.user, message.displayName, this.state.party);
+        events.push(...exploreEvents);
+      } else if (command === 'go') {
+        const goEvents = this.adventure.handleGo(message.user, message.displayName, args.join(' '));
+        events.push(...goEvents);
+      } else if (command === 'attack') {
+        const atkEvents = this.adventure.handleAttack(message.user, this.state.party);
+        events.push(...atkEvents);
+      } else if (command === 'defend') {
+        const defEvents = this.adventure.handleDefend(message.user, this.state.party);
+        events.push(...defEvents);
+      } else if (command === 'item') {
+        const itemEvents = this.adventure.handleItem(message.user, args[0], this.state.party);
+        events.push(...itemEvents);
+      } else if (command === 'heal') {
+        const healEvents = this.adventure.handleHeal(message.user, args[0], this.state.party);
+        events.push(...healEvents);
+      } else if (command === 'roll-test' || command === 'dice-test') {
+        const roll = rollD20(this.rng);
+        events.push(createSayEvent(`🎲 @${message.displayName || message.user} rolled a ${roll}!`));
+        events.push(createGameEvent('dice_roll', {
+          user: message.user.toLowerCase(),
+          displayName: message.displayName || message.user,
+          roll
+        }));
+      }
+    }
+
+    return { events, state: this.getState() };
+  }
+
+  /**
+   * Returns complete engine snapshot.
+   * @returns {object}
+   */
+  getState() {
+    return {
+      status: this.adventure.status,
+      theme: this.adventure.theme,
+      currentRoom: this.adventure.currentRoom,
+      dungeon: this.adventure.dungeon,
+      themeVote: this.adventure.themeVote,
+      exitVote: this.adventure.exitVote,
+      combat: this.adventure.combat,
+      outcomeSnapshot: this.adventure.outcomeSnapshot,
+      party: this.state.party
+    };
+  }
+}
+
+/**
+ * Functional entry helper for processing a message against a state.
+ * @param {Engine|object} engineOrOptions
+ * @param {object} message
+ * @returns {{ events: Array<object>, state: object }}
+ */
+export function processMessage(engineOrOptions, message) {
+  const engine = engineOrOptions instanceof Engine ? engineOrOptions : new Engine(engineOrOptions);
+  return engine.handleMessage(message);
+}

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "grill-with-docs": {
+      "source": "fboucher/skills",
+      "sourceType": "github",
+      "skillPath": "grill-with-docs/SKILL.md",
+      "computedHash": "7c212cee6a823b956aaec7dff2a846814fe9986caa2e62313734010c7bd3db70"
+    },
+    "handoff": {
+      "source": "fboucher/skills",
+      "sourceType": "github",
+      "skillPath": "handoff/SKILL.md",
+      "computedHash": "27c65012f4242f10f67808bd475ad402637d1d77179d0d960834c12660dabf46"
+    },
+    "to-issues": {
+      "source": "fboucher/skills",
+      "sourceType": "github",
+      "skillPath": "to-issues/SKILL.md",
+      "computedHash": "90ee734ed2be70cd3b93432bc9c91c111256f034ed1c50376ee48e33876f9e33"
+    }
+  }
+}
