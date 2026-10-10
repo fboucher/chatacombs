@@ -1,0 +1,107 @@
+import { rollD20 } from './dice.js';
+import { createSayEvent, createGameEvent } from './events.js';
+
+/**
+ * Chatacombs Core Engine.
+ * Pure code engine: deterministic, testable, and offline.
+ */
+export class Engine {
+  /**
+   * @param {object} [options={}]
+   * @param {() => number} [options.rng=Math.random]
+   * @param {() => number} [options.clock=() => Date.now()]
+   * @param {object} [options.initialState={}]
+   */
+  constructor(options = {}) {
+    this.rng = options.rng || Math.random;
+    this.clock = options.clock || (() => Date.now());
+    this.state = {
+      status: 'idle', // 'idle' | 'voting' | 'active' | 'cleared' | 'wiped' | 'abandoned'
+      party: new Map(), // username -> { displayName, lastSeenAt, hp, maxHp, isKnockedOut, ... }
+      currentAdventure: null,
+      ...options.initialState
+    };
+  }
+
+  /**
+   * Registers or updates a chatter in the active party.
+   * Anyone who chatted in the last 15 minutes is automatically in the party.
+   * @param {string} user 
+   * @param {string} displayName 
+   * @returns {object}
+   */
+  trackChatter(user, displayName) {
+    const username = user.toLowerCase();
+    const now = this.clock();
+    let member = this.state.party.get(username);
+    if (!member) {
+      member = {
+        username,
+        displayName: displayName || user,
+        hp: 20,
+        maxHp: 20,
+        isKnockedOut: false,
+        potions: 1,
+        lastSeenAt: now
+      };
+      this.state.party.set(username, member);
+    } else {
+      member.lastSeenAt = now;
+      if (displayName) member.displayName = displayName;
+    }
+    return member;
+  }
+
+  /**
+   * Main message intake entry.
+   * @param {{ user: string, displayName: string, text: string, isBroadcaster?: boolean }} message
+   * @returns {{ events: Array<{ kind: 'say'|'game', [key: string]: any }>, state: object }}
+   */
+  handleMessage(message) {
+    const events = [];
+    if (!message || typeof message.text !== 'string' || !message.user) {
+      return { events, state: this.state };
+    }
+
+    const trimmed = message.text.trim();
+    if (!trimmed) {
+      return { events, state: this.state };
+    }
+
+    // Every chatter who posts is tracked in the party
+    this.trackChatter(message.user, message.displayName);
+
+    // Command dispatching
+    if (trimmed.startsWith('!')) {
+      const parts = trimmed.slice(1).split(/\s+/);
+      const command = parts[0].toLowerCase();
+      const args = parts.slice(1);
+
+      // Scaffold echo dice roll (used for testing the message-in / events-out harness)
+      if (command === 'roll-test' || command === 'dice-test') {
+        const roll = rollD20(this.rng);
+        events.push(createSayEvent(`🎲 @${message.displayName || message.user} rolled a ${roll}!`));
+        events.push(createGameEvent('dice_roll', {
+          user: message.user.toLowerCase(),
+          displayName: message.displayName || message.user,
+          roll
+        }));
+      }
+
+      // Additional commands will be handled by subsequent slices (voting, combat, explore, go)
+    }
+
+    return { events, state: this.state };
+  }
+}
+
+/**
+ * Functional entry helper for processing a message against a state.
+ * @param {Engine|object} engineOrOptions
+ * @param {object} message
+ * @returns {{ events: Array<object>, state: object }}
+ */
+export function processMessage(engineOrOptions, message) {
+  const engine = engineOrOptions instanceof Engine ? engineOrOptions : new Engine(engineOrOptions);
+  return engine.handleMessage(message);
+}
