@@ -1,6 +1,7 @@
 import { rollD20 } from './dice.js';
 import { createSayEvent, createGameEvent } from './events.js';
 import { Adventure } from './adventure.js';
+import { PlayerRepository } from '../db/playerRepo.js';
 
 /**
  * Chatacombs Core Engine.
@@ -14,6 +15,9 @@ export class Engine {
    * @param {number} [options.voteDurationMs=60000]
    * @param {number} [options.inactivityThresholdMs=120000]
    * @param {number} [options.nudgeIntervalMs=600000]
+   * @param {string} [options.channel='default']
+   * @param {import('better-sqlite3').Database} [options.db]
+   * @param {PlayerRepository} [options.playerRepo]
    * @param {object} [options.initialState={}]
    */
   constructor(options = {}) {
@@ -22,6 +26,10 @@ export class Engine {
     this.voteDurationMs = options.voteDurationMs ?? 60000;
     this.inactivityThresholdMs = options.inactivityThresholdMs ?? 120000;
     this.nudgeIntervalMs = options.nudgeIntervalMs ?? 600000;
+    this.channel = (options.channel || 'default').toLowerCase();
+
+    this.db = options.db || null;
+    this.playerRepo = options.playerRepo || (this.db ? new PlayerRepository(this.db) : null);
 
     this.adventure = new Adventure({
       rng: this.rng,
@@ -101,6 +109,11 @@ export class Engine {
       member.lastSeenAt = now;
       if (displayName) member.displayName = displayName;
     }
+
+    if (this.playerRepo) {
+      this.playerRepo.upsertPlayer(this.channel, username, displayName || user);
+    }
+
     return member;
   }
 
@@ -161,6 +174,34 @@ export class Engine {
       } else if (command === 'heal') {
         const healEvents = this.adventure.handleHeal(message.user, args[0], this.state.party);
         events.push(...healEvents);
+      } else if (command === 'hero') {
+        const userNorm = message.user.toLowerCase();
+        const dbPlayer = this.playerRepo ? this.playerRepo.getPlayer(this.channel, userNorm) : null;
+        const member = this.state.party.get(userNorm);
+
+        const level = dbPlayer ? dbPlayer.level : 1;
+        const xp = dbPlayer ? dbPlayer.xp : 0;
+        const gold = dbPlayer ? dbPlayer.gold : 0;
+        const hp = member ? member.hp : 20;
+        const maxHp = member ? member.maxHp : 20;
+        const potions = member ? member.potions : 1;
+        const isKnockedOut = member ? Boolean(member.isKnockedOut || member.hp <= 0) : false;
+        const koBadge = isKnockedOut ? ' [KO]' : '';
+
+        events.push(createSayEvent(
+          `🛡️ @${message.displayName || message.user} (Lvl ${level}) | HP: ${hp}/${maxHp}${koBadge} | Gold: ${gold} | XP: ${xp} | Potions: ${potions}`
+        ));
+        events.push(createGameEvent('hero_stats', {
+          user: userNorm,
+          displayName: message.displayName || message.user,
+          level,
+          xp,
+          gold,
+          hp,
+          maxHp,
+          potions,
+          isKnockedOut
+        }));
       } else if (command === 'roll-test' || command === 'dice-test') {
         const roll = rollD20(this.rng);
         events.push(createSayEvent(`🎲 @${message.displayName || message.user} rolled a ${roll}!`));
