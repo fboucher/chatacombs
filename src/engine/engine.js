@@ -123,6 +123,18 @@ export class Engine {
       } else if (command === 'go') {
         const goEvents = this.adventure.handleGo(message.user, message.displayName, args.join(' '));
         events.push(...goEvents);
+      } else if (command === 'attack') {
+        const atkEvents = this.adventure.handleAttack(message.user, this.state.party);
+        events.push(...atkEvents);
+      } else if (command === 'defend') {
+        const defEvents = this.adventure.handleDefend(message.user, this.state.party);
+        events.push(...defEvents);
+      } else if (command === 'item') {
+        const itemEvents = this.adventure.handleItem(message.user, args[0], this.state.party);
+        events.push(...itemEvents);
+      } else if (command === 'heal') {
+        const healEvents = this.adventure.handleHeal(message.user, args[0], this.state.party);
+        events.push(...healEvents);
       } else if (command === 'roll-test' || command === 'dice-test') {
         const roll = rollD20(this.rng);
         events.push(createSayEvent(`🎲 @${message.displayName || message.user} rolled a ${roll}!`));
@@ -149,6 +161,7 @@ export class Engine {
       dungeon: this.adventure.dungeon,
       themeVote: this.adventure.themeVote,
       exitVote: this.adventure.exitVote,
+      combat: this.adventure.combat,
       party: this.state.party
     };
   }

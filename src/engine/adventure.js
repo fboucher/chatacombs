@@ -6,6 +6,7 @@
 
 import { generateDungeon } from './generator.js';
 import { createSayEvent, createGameEvent } from './events.js';
+import { CombatResolver } from './combat.js';
 
 export const BUILTIN_THEMES = [
   'haunted house',
@@ -19,7 +20,7 @@ export const BUILTIN_THEMES = [
 ];
 
 /**
- * Adventure manager handling theme votes and room progression.
+ * Adventure manager handling theme votes, room progression, and combat.
  */
 export class Adventure {
   /**
@@ -38,6 +39,8 @@ export class Adventure {
     this.dungeon = null;
     this.currentRoom = null;
     this.themeVote = null;
+    this.exitVote = null;
+    this.combat = null;
   }
 
   /**
@@ -390,15 +393,115 @@ export class Adventure {
         hp: nextRoom.monster.hp,
         maxHp: nextRoom.monster.maxHp
       }));
+      this.combat = new CombatResolver({
+        rng: this.rng,
+        clock: this.clock,
+        roundDurationMs: this.voteDurationMs
+      });
+      events.push(...this.combat.startEncounter());
     } else if (nextRoom.type === 'monster' && nextRoom.monster) {
       events.push(createSayEvent(`⚔️ A ${nextRoom.monster.name} lurks in the shadows with ${nextRoom.monster.hp} HP!`));
+      this.combat = new CombatResolver({
+        rng: this.rng,
+        clock: this.clock,
+        roundDurationMs: this.voteDurationMs
+      });
+      events.push(...this.combat.startEncounter());
     }
 
     return events;
   }
 
   /**
-   * Ticks time-based events (closing theme vote or exit vote).
+   * Handles !attack command in combat.
+   */
+  handleAttack(user, party) {
+    if (this.status !== 'active' || !this.combat || !this.currentRoom?.monster) return [];
+    const player = party?.get(user.toLowerCase());
+    if (!player) return [];
+    this.combat.registerAction(player, 'attack');
+    return [];
+  }
+
+  /**
+   * Handles !defend command in combat.
+   */
+  handleDefend(user, party) {
+    if (this.status !== 'active' || !this.combat || !this.currentRoom?.monster) return [];
+    const player = party?.get(user.toLowerCase());
+    if (!player) return [];
+    this.combat.registerAction(player, 'defend');
+    return [];
+  }
+
+  /**
+   * Handles !item <name> command in combat or exploration.
+   */
+  handleItem(user, itemName, party) {
+    if (!itemName || typeof itemName !== 'string') return [];
+    const normItem = itemName.trim().toLowerCase();
+    const player = party?.get(user.toLowerCase());
+    if (!player) return [];
+
+    if (this.combat) {
+      this.combat.registerAction(player, 'item', { item: normItem });
+      return [];
+    }
+
+    // Outside combat: instant potion use
+    if (normItem === 'potion' && player.potions > 0 && !player.isKnockedOut) {
+      player.potions--;
+      const healAmount = Math.min(player.maxHp - player.hp, 10);
+      player.hp = Math.min(player.maxHp, player.hp + 10);
+      return [
+        createSayEvent(`🧪 @${player.displayName} drank a potion and restored ${healAmount} HP! (${player.hp}/${player.maxHp})`),
+        createGameEvent('player_healed', {
+          user: player.username,
+          target: player.username,
+          amount: healAmount
+        })
+      ];
+    }
+
+    return [];
+  }
+
+  /**
+   * Handles !heal @target command.
+   */
+  handleHeal(user, targetRaw, party) {
+    if (!targetRaw || typeof targetRaw !== 'string') return [];
+    const targetUser = targetRaw.replace(/^@/, '').trim().toLowerCase();
+    const player = party?.get(user.toLowerCase());
+    const targetMember = party?.get(targetUser);
+    if (!player || !targetMember) return [];
+
+    if (this.combat) {
+      this.combat.registerAction(player, 'heal', { target: targetUser });
+      return [];
+    }
+
+    // Outside combat: instant heal
+    if (player.potions > 0 && !player.isKnockedOut) {
+      player.potions--;
+      targetMember.isKnockedOut = false;
+      const healAmount = Math.min(targetMember.maxHp - targetMember.hp, 10);
+      targetMember.hp = Math.min(targetMember.maxHp, targetMember.hp + 10);
+      return [
+        createSayEvent(`💖 @${player.displayName} healed @${targetMember.displayName} for ${healAmount} HP!`),
+        createGameEvent('player_healed', {
+          user: player.username,
+          target: targetMember.username,
+          amount: healAmount
+        })
+      ];
+    }
+
+    return [];
+  }
+
+  /**
+   * Ticks time-based events (closing theme vote, exit vote, or combat round).
    * @param {number} [currentTime]
    * @param {Map<string, object>} [party]
    * @returns {Array<object>}
@@ -407,6 +510,25 @@ export class Adventure {
     if (this.status === 'voting' && this.themeVote) {
       if (currentTime >= this.themeVote.openedAt + this.themeVote.durationMs) {
         return this.closeThemeVote();
+      }
+    }
+
+    if (this.status === 'active' && this.combat && this.currentRoom?.monster) {
+      if (currentTime >= this.combat.roundOpenedAt + this.combat.roundDurationMs) {
+        const result = this.combat.resolveRound(this.currentRoom.monster, party);
+        if (result.monsterDefeated) {
+          this.combat = null;
+          // Room is cleared
+          this.currentRoom.cleared = true;
+        } else if (result.partyWiped) {
+          this.status = 'wiped';
+          this.combat = null;
+          result.events.push(createGameEvent('party_wiped', {
+            roomNumber: this.currentRoom.roomNumber,
+            theme: this.theme
+          }));
+        }
+        return result.events;
       }
     }
 
