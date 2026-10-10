@@ -133,19 +133,30 @@ export class CombatResolver {
 
         // Roll d20 attack vs monster defense
         const atkCheck = checkDC(monster.defense, 0, 0, this.rng);
-        events.push(createGameEvent('dice_roll', {
+        // Monster HP fields let overlays animate the HP bar straight from the event
+        const rollEvent = createGameEvent('dice_roll', {
           user: actor.username,
+          displayName: actor.displayName,
           roll: atkCheck.roll,
+          modifier: atkCheck.total - atkCheck.roll,
           total: atkCheck.total,
           dc: monster.defense,
-          success: atkCheck.success
-        }));
+          success: atkCheck.success,
+          isCrit: Boolean(atkCheck.isCrit),
+          damage: 0,
+          monster: monster.name,
+          monsterHp: monster.hp,
+          monsterMaxHp: monster.maxHp
+        });
+        events.push(rollEvent);
 
         if (atkCheck.success) {
           const dmgBonus = atkCheck.isCrit ? 4 : 2;
           const dmgRoll = rollDamage(1, 6, dmgBonus, this.rng);
           const dmg = atkCheck.isCrit ? dmgRoll.total * 2 : dmgRoll.total;
           monster.hp = Math.max(0, monster.hp - dmg);
+          rollEvent.damage = dmg;
+          rollEvent.monsterHp = monster.hp;
 
           const critText = atkCheck.isCrit ? ' CRITICAL HIT!' : '';
           events.push(createSayEvent(
@@ -158,6 +169,8 @@ export class CombatResolver {
             events.push(createSayEvent(`🎉 ${monster.name} has been vanquished!`));
             events.push(createGameEvent('monster_defeated', {
               monster: monster.name,
+              hp: 0,
+              maxHp: monster.maxHp,
               xp: monster.xp,
               gold: monster.gold,
               loot: monster.loot

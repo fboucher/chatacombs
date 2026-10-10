@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { Engine } from '../engine/engine.js';
 import { MessagePacer } from './pacer.js';
+import { buildOverlayView } from './overlayView.js';
 
 export const HEARTBEAT_INTERVAL_MS = 15000; // 15 seconds
 
@@ -28,6 +29,8 @@ export class ChannelRuntime {
 
     this.bus = new EventEmitter();
     this.clients = new Set(); // SSE Response objects
+    this.overlayClients = new Set(); // Overlay SSE Response objects (game events + overlay_state)
+    this._overlayStateScheduled = false;
 
     // Initialize Engine
     this.engine = new Engine({
@@ -71,18 +74,73 @@ export class ChannelRuntime {
   }
 
   /**
+   * Registers an overlay SSE connection. Overlays only receive game moments plus an
+   * `overlay_state` snapshot, sent on connect so every (re)connect re-syncs the ribbon.
+   * @param {import('express').Response} res
+   */
+  addOverlayClient(res) {
+    this.overlayClients.add(res);
+
+    res.write(`: connected to overlay for channel ${this.channel}\n\n`);
+    res.write(this._formatOverlayState());
+
+    res.on('close', () => {
+      this.overlayClients.delete(res);
+    });
+  }
+
+  /**
+   * Returns the overlay snapshot for this channel.
+   * @returns {object}
+   */
+  getOverlayState() {
+    return buildOverlayView(this.engine.getState(), this.engine.getActiveParty());
+  }
+
+  /**
+   * @returns {string} SSE frame carrying the current overlay snapshot
+   */
+  _formatOverlayState() {
+    return `event: overlay_state\ndata: ${JSON.stringify(this.getOverlayState())}\n\n`;
+  }
+
+  /**
+   * Writes a payload to every client in a set, dropping broken connections.
+   * @param {Set<import('express').Response>} clients
+   * @param {string} payload
+   */
+  _writeAll(clients, payload) {
+    for (const client of clients) {
+      try {
+        client.write(payload);
+      } catch (err) {
+        clients.delete(client);
+      }
+    }
+  }
+
+  /**
+   * Queues one overlay_state frame after the current batch of game events,
+   * so a burst of combat events produces a single snapshot.
+   */
+  _scheduleOverlayState() {
+    if (this._overlayStateScheduled || this.overlayClients.size === 0) return;
+    this._overlayStateScheduled = true;
+    setImmediate(() => {
+      this._overlayStateScheduled = false;
+      if (this.overlayClients.size === 0) return;
+      this._writeAll(this.overlayClients, this._formatOverlayState());
+    });
+  }
+
+  /**
    * Broadcasts an SSE comment (e.g. heartbeat ping).
    * @param {string} comment
    */
   _broadcastComment(comment) {
     const payload = `: ${comment}\n\n`;
-    for (const client of this.clients) {
-      try {
-        client.write(payload);
-      } catch (err) {
-        this.clients.delete(client);
-      }
-    }
+    this._writeAll(this.clients, payload);
+    this._writeAll(this.overlayClients, payload);
   }
 
   /**
@@ -94,13 +152,14 @@ export class ChannelRuntime {
     const dataStr = JSON.stringify(event);
     const payload = `event: ${eventName}\ndata: ${dataStr}\n\n`;
 
-    for (const client of this.clients) {
-      try {
-        client.write(payload);
-      } catch (err) {
-        this.clients.delete(client);
-      }
+    this._writeAll(this.clients, payload);
+
+    // Overlays get game moments only; any emitted line may follow a state change
+    // (vote opened, round started), so a fresh snapshot follows either way.
+    if (event.kind === 'game') {
+      this._writeAll(this.overlayClients, payload);
     }
+    this._scheduleOverlayState();
 
     this.bus.emit('event', event);
   }
@@ -118,6 +177,8 @@ export class ChannelRuntime {
         this.pacer.push(ev);
       }
     }
+    // Chatters join the party and votes change tallies without emitting events
+    this._scheduleOverlayState();
   }
 
   /**
@@ -176,5 +237,11 @@ export class ChannelRuntime {
       } catch (_) {}
     }
     this.clients.clear();
+    for (const client of this.overlayClients) {
+      try {
+        client.end();
+      } catch (_) {}
+    }
+    this.overlayClients.clear();
   }
 }

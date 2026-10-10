@@ -1,6 +1,7 @@
 import express from 'express';
 import { requireApiKey, requireOverlayKey } from './auth.js';
 import { ChannelRuntime } from './runtime.js';
+import { renderOverlayPage } from './overlayPage.js';
 
 /**
  * Creates the Chatacombs Express application.
@@ -130,18 +131,17 @@ export function createApp(options = {}) {
 
   // Overlay Web / Shell: GET /overlay/:channel (Query key auth: ?key=<OVERLAY_KEY>)
   app.get('/overlay/:channel', requireOverlayKey(overlayKey), (req, res) => {
-    const channel = req.params.channel;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(`<!DOCTYPE html><html><head><title>Chatacombs Overlay - ${channel}</title></head><body><div id="overlay">Chatacombs Overlay Ready</div></body></html>`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(renderOverlayPage());
   });
 
   // Overlay State Snapshot: GET /overlay/:channel/state (Query key auth: ?key=<OVERLAY_KEY>)
   app.get('/overlay/:channel/state', requireOverlayKey(overlayKey), (req, res) => {
     const channel = req.params.channel;
     const runtime = getRuntime(channel);
-    const state = runtime.getState();
 
-    res.json(state);
+    res.json(runtime.getOverlayState());
   });
 
   // Overlay SSE Stream: GET /overlay/:channel/events (Query key auth: ?key=<OVERLAY_KEY>)
@@ -154,7 +154,7 @@ export function createApp(options = {}) {
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders?.();
 
-    runtime.addClient(res);
+    runtime.addOverlayClient(res);
   });
 
   // Central error handler
