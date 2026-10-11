@@ -2,6 +2,8 @@ import { EventEmitter } from 'node:events';
 import { Engine } from '../engine/engine.js';
 import { MessagePacer } from './pacer.js';
 import { buildOverlayView } from './overlayView.js';
+import { Narrator } from '../ai/narrator.js';
+import { createSayEvent } from '../engine/events.js';
 
 export const HEARTBEAT_INTERVAL_MS = 15000; // 15 seconds
 export const TICK_INTERVAL_MS = 1000; // vote and combat timers resolve on this clock
@@ -22,6 +24,7 @@ export class ChannelRuntime {
    * @param {string} [options.botName='CB']
    * @param {number} [options.pacerIntervalMs=1800]
    * @param {number} [options.tickIntervalMs=1000] How often timers are checked; 0 disables the ticker
+   * @param {Narrator} [options.narrator] AI narrator for key moments (defaults to one built from AI_URL)
    */
   constructor(options = {}) {
     this.channel = (options.channel || 'default').toLowerCase();
@@ -37,6 +40,10 @@ export class ChannelRuntime {
     this._overlayStateScheduled = false;
 
     this.engineOptions = options.engineOptions || {};
+
+    // Template lines already carry the facts, so narration is AI-only and adds nothing on failure
+    this.narrator = options.narrator || new Narrator({ botName: this.botName, fallbackToTemplates: false });
+    this._destroyed = false;
 
     // Initialize Engine
     this.engine = new Engine({
@@ -180,6 +187,63 @@ export class ChannelRuntime {
   }
 
   /**
+   * Sends engine events to the pacer, then asks the AI narrator for flavour
+   * on the key moments among them.
+   * @param {Array<object>} [events]
+   */
+  _dispatch(events) {
+    if (!events || events.length === 0) return;
+    for (const ev of events) {
+      this.pacer.push(ev);
+    }
+    this._narrate(events);
+  }
+
+  /**
+   * Narrates room entries, monster appearances and fight endings with the AI.
+   * The deterministic template lines have already been queued; one narrated line
+   * per moment follows them once the AI answers. Does nothing without AI_URL.
+   * @param {Array<object>} events
+   */
+  _narrate(events) {
+    if (!this.narrator?.aiClient?.isConfigured) return;
+
+    const adventure = this.engine.adventure;
+    const room = adventure.currentRoom;
+    const totalRooms = adventure.dungeon?.totalRooms;
+    this.narrator.setTheme(adventure.theme);
+
+    for (const ev of events) {
+      if (ev.kind !== 'game' || !room) continue;
+
+      let pending = null;
+      if (ev.type === 'room_entered') {
+        // In a monster or boss room the creature is the moment worth narrating
+        pending = room.monster && (room.type === 'monster' || room.type === 'boss')
+          ? this.narrator.narrateMonsterIntro({ ...room.monster }, { type: room.type, name: room.name })
+          : this.narrator.narrateRoom({ ...room }, { totalRooms });
+      } else if (ev.type === 'monster_defeated' || ev.type === 'party_wiped') {
+        const monster = room.monster ? { ...room.monster } : { name: ev.monster };
+        pending = this.narrator.narrateCombatRecap({
+          monster,
+          events,
+          monsterDefeated: ev.type === 'monster_defeated',
+          partyWiped: ev.type === 'party_wiped'
+        });
+      }
+
+      if (pending) {
+        pending
+          .then(lines => {
+            if (this._destroyed || !lines || lines.length === 0) return;
+            this.pacer.push(createSayEvent(lines[0]));
+          })
+          .catch(() => {});
+      }
+    }
+  }
+
+  /**
    * Handles incoming chat message from bot.
    * Processes through engine and enqueues emitted events into pacer.
    * @param {object} message
@@ -187,11 +251,7 @@ export class ChannelRuntime {
    */
   async handleMessage(message) {
     const res = await this.engine.handleMessageAsync(message);
-    if (res.events && res.events.length > 0) {
-      for (const ev of res.events) {
-        this.pacer.push(ev);
-      }
-    }
+    this._dispatch(res.events);
     // Chatters join the party and votes change tallies without emitting events
     this._scheduleOverlayState();
   }
@@ -204,11 +264,7 @@ export class ChannelRuntime {
    */
   tick(currentTime = this.clock()) {
     const events = this.engine.tick(currentTime);
-    if (events && events.length > 0) {
-      for (const ev of events) {
-        this.pacer.push(ev);
-      }
-    }
+    this._dispatch(events);
     this._scheduleOverlayState();
     return events;
   }
@@ -227,10 +283,7 @@ export class ChannelRuntime {
         this.engine.resetAdventure();
       }
       if (this.engine.status === 'idle') {
-        const events = this.engine.startThemeVote();
-        for (const ev of events) {
-          this.pacer.push(ev);
-        }
+        this._dispatch(this.engine.startThemeVote());
         return { changed: true, status: this.engine.status };
       }
       return { changed: false, status: currentStatus };
@@ -238,10 +291,7 @@ export class ChannelRuntime {
 
     if (state === 'ended') {
       if (currentStatus !== 'idle' && !ENDED_STATUSES.has(currentStatus)) {
-        const events = this.engine.abandonAdventure('stream_ended');
-        for (const ev of events) {
-          this.pacer.push(ev);
-        }
+        this._dispatch(this.engine.abandonAdventure('stream_ended'));
         return { changed: true, status: this.engine.status };
       }
       return { changed: false, status: currentStatus };
@@ -262,6 +312,7 @@ export class ChannelRuntime {
    * Shuts down runtime, timers, and client connections.
    */
   destroy() {
+    this._destroyed = true;
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
