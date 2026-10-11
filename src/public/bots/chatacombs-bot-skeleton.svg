@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 530 520" width="530" height="520">
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="#262a35" stroke="#111" stroke-width="12" stroke-linejoin="round"/>
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="none" stroke="#efe8d6" stroke-width="5" stroke-linejoin="round" transform="translate(265,310) scale(0.955) translate(-265,-310)"/>
+<!-- ribs printed on the costume -->
+<g stroke="#efe8d6" stroke-width="12" stroke-linecap="round" fill="none">
+  <path d="M100,330 Q120,315 150,322"/><path d="M96,372 Q120,356 152,364"/><path d="M96,414 Q120,398 152,406"/>
+  <path d="M430,330 Q410,315 380,322"/><path d="M434,372 Q410,356 378,364"/><path d="M434,414 Q410,398 378,406"/>
+</g>
+<rect x="257" y="300" width="16" height="160" rx="8" fill="#efe8d6"/>
+<!-- skull mask over the visor -->
+<path d="M150,250 C150,196 380,196 380,250 L380,330 C380,352 360,356 346,362 L346,392 L184,392 L184,362 C170,356 150,352 150,330 Z" fill="#efe8d6" stroke="#111" stroke-width="8" stroke-linejoin="round"/>
+<ellipse cx="220" cy="285" rx="40" ry="42" fill="#1c1e26"/>
+<ellipse cx="310" cy="285" rx="40" ry="42" fill="#1c1e26"/>
+<ellipse cx="220" cy="288" rx="15" ry="27" fill="#7cfc00"/>
+<ellipse cx="310" cy="288" rx="15" ry="27" fill="#7cfc00"/>
+<path d="M265,318 L253,342 L277,342 Z" fill="#1c1e26"/>
+<rect x="196" y="356" width="138" height="34" rx="6" fill="#1c1e26"/>
+<g fill="#efe8d6"><rect x="200" y="358" width="17" height="30" rx="3"/><rect x="222" y="358" width="17" height="30" rx="3"/><rect x="244" y="358" width="17" height="30" rx="3"/><rect x="266" y="358" width="17" height="30" rx="3"/><rect x="288" y="358" width="17" height="30" rx="3"/><rect x="310" y="358" width="17" height="30" rx="3"/></g>
+<path d="M236,214 l10,14 l-8,10" fill="none" stroke="#b8ae96" stroke-width="4" stroke-linecap="round"/>
+<g transform="translate(80,400) scale(-1,1)"><path d="M-38,40 C-60,10 -52,-30 -30,-40 C-26,-70 -6,-78 6,-60 C14,-82 38,-80 40,-56 C58,-66 74,-50 62,-28 C70,-10 62,22 40,40 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-2,-30 C2,-10 4,8 0,24 M24,-30 C30,-10 30,8 26,22" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/><circle cx="-2" cy="-34" r="5" fill="#9a9a9a"/><circle cx="24" cy="-34" r="5" fill="#9a9a9a"/><circle cx="46" cy="-24" r="5" fill="#9a9a9a"/><path d="M-36,40 L40,40 L36,62 L-30,62 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/></g>
+<g transform="translate(452,400) scale(1,1)"><path d="M-38,40 C-60,10 -52,-30 -30,-40 C-26,-70 -6,-78 6,-60 C14,-82 38,-80 40,-56 C58,-66 74,-50 62,-28 C70,-10 62,22 40,40 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-2,-30 C2,-10 4,8 0,24 M24,-30 C30,-10 30,8 26,22" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/><circle cx="-2" cy="-34" r="5" fill="#9a9a9a"/><circle cx="24" cy="-34" r="5" fill="#9a9a9a"/><circle cx="46" cy="-24" r="5" fill="#9a9a9a"/><path d="M-36,40 L40,40 L36,62 L-30,62 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/></g>
+</svg>
