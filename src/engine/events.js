@@ -7,13 +7,15 @@
 
 /**
  * Creates a chat 'say' event.
+ * Twitch chat messages are a single line, and a line break makes bots drop or
+ * cut the message, so any line breaks are folded into spaces.
  * @param {string} text 
  * @returns {{ kind: 'say', text: string }}
  */
 export function createSayEvent(text) {
   return {
     kind: 'say',
-    text
+    text: String(text).replace(/\s*[\r\n]+\s*/g, ' ')
   };
 }
 

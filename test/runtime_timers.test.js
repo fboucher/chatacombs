@@ -130,3 +130,17 @@ test('runtime stream start - does nothing while an adventure is running', (t) =>
   assert.deepEqual(runtime.setStreamState('started'), { changed: false, status: 'voting' });
   assert.equal(runtime.engine.adventure, adventure);
 });
+
+test('runtime stream start - theme vote is one chat line, also after a restart', async (t) => {
+  const { runtime } = makeRuntime(t, { tickIntervalMs: 0 });
+  const said = [];
+  runtime.bus.on('event', ev => { if (ev.kind === 'say') said.push(ev.text); });
+
+  runtime.setStreamState('started');
+  runtime.setStreamState('ended');
+  runtime.setStreamState('started');
+  await waitFor(() => said.filter(text => text.includes('A new dungeon awaits')).length === 2);
+
+  for (const text of said) assert.doesNotMatch(text, /[\r\n]/);
+  assert.match(said.at(-1), /!theme <idea>: 1: classic fantasy \| 2: .+ \| 3: .+$/);
+});
