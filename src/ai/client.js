@@ -1,10 +1,25 @@
 /**
  * Thin, foolproof AI Client for OpenAI-compatible chat completions.
- * Enforces a strict 4-second timeout via AbortController and resolves cleanly
+ * Enforces a strict timeout via AbortController and resolves cleanly
  * to an explicit fallback signal on any failure or missing configuration.
+ * Failures are logged (at most once a minute per kind) so a misconfigured
+ * endpoint doesn't silently turn into template text.
  */
 
-export const DEFAULT_TIMEOUT_MS = 4000;
+export const DEFAULT_TIMEOUT_MS = 10000;
+export const FAILURE_LOG_INTERVAL_MS = 60000;
+
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0']);
+
+/**
+ * Reads a positive integer from an environment value.
+ * @param {string|undefined} value
+ * @returns {number|null}
+ */
+function positiveInt(value) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 
 export class AiClient {
   /**
@@ -12,15 +27,60 @@ export class AiClient {
    * @param {string} [options.url] OpenAI-compatible endpoint URL (e.g. process.env.AI_URL)
    * @param {string} [options.key] API Key (e.g. process.env.AI_KEY)
    * @param {string} [options.model] Model name (e.g. process.env.AI_MODEL)
-   * @param {number} [options.timeoutMs=4000]
+   * @param {number} [options.timeoutMs=10000] (or process.env.AI_TIMEOUT_MS)
    * @param {typeof fetch} [options.fetchFn=globalThis.fetch]
+   * @param {{ warn: Function }} [options.logger=console]
    */
   constructor(options = {}) {
     this.url = options.url || process.env.AI_URL || null;
     this.key = options.key || process.env.AI_KEY || null;
     this.model = options.model || process.env.AI_MODEL || null;
-    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.timeoutMs = options.timeoutMs ?? positiveInt(process.env.AI_TIMEOUT_MS) ?? DEFAULT_TIMEOUT_MS;
     this.fetchFn = options.fetchFn || globalThis.fetch;
+    this.logger = options.logger || console;
+    this._lastFailureLogAt = new Map(); // error kind -> time last logged
+  }
+
+  /**
+   * One-line summary of the AI setup for the startup log.
+   * @returns {string}
+   */
+  describe() {
+    if (!this.isConfigured) return 'off (AI_URL not set, using built-in text)';
+    return `on (${this.model || 'default model'} at ${this.endpoint}, ${this.timeoutMs}ms timeout)`;
+  }
+
+  /**
+   * Whether AI_URL points at the machine Chatacombs runs on, which inside a
+   * container is the container itself rather than the host.
+   * @returns {boolean}
+   */
+  get pointsAtLocalhost() {
+    try {
+      return LOCAL_HOSTS.has(new URL(this.endpoint).hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Logs why a completion fell back to templates, at most once a minute per kind.
+   * @param {string} error
+   */
+  _logFailure(error) {
+    const kind = error.startsWith('HTTP_') ? error : error.split(':')[0];
+    const now = Date.now();
+    const last = this._lastFailureLogAt.get(kind);
+    if (last !== undefined && now - last < FAILURE_LOG_INTERVAL_MS) return;
+    this._lastFailureLogAt.set(kind, now);
+
+    let hint = '';
+    if (error === 'TIMEOUT') {
+      hint = ` Raise AI_TIMEOUT_MS (now ${this.timeoutMs}) if the model is slow.`;
+    } else if (!error.startsWith('HTTP_') && error !== 'EMPTY_OR_INVALID_COMPLETION' && this.pointsAtLocalhost) {
+      hint = ' If Chatacombs runs in Docker, localhost is the container itself: point AI_URL at host.docker.internal instead.';
+    }
+    this.logger.warn(`[ai] ${this.endpoint} failed (${error}), using built-in text.${hint}`);
   }
 
   /**
@@ -89,22 +149,14 @@ export class AiClient {
       clearTimeout(timeout);
 
       if (!res.ok) {
-        return {
-          ok: false,
-          fallback: true,
-          error: `HTTP_${res.status}`
-        };
+        return this._fail(`HTTP_${res.status}`);
       }
 
       const data = await res.json();
       const content = data?.choices?.[0]?.message?.content;
 
       if (typeof content !== 'string' || !content.trim()) {
-        return {
-          ok: false,
-          fallback: true,
-          error: 'EMPTY_OR_INVALID_COMPLETION'
-        };
+        return this._fail('EMPTY_OR_INVALID_COMPLETION');
       }
 
       return {
@@ -115,11 +167,19 @@ export class AiClient {
     } catch (err) {
       clearTimeout(timeout);
       const isAbort = err.name === 'AbortError' || controller.signal.aborted;
-      return {
-        ok: false,
-        fallback: true,
-        error: isAbort ? 'TIMEOUT' : (err.message || 'NETWORK_ERROR')
-      };
+      const cause = err.cause?.code || err.cause?.message;
+      const message = err.message || 'NETWORK_ERROR';
+      return this._fail(isAbort ? 'TIMEOUT' : (cause ? `${message}: ${cause}` : message));
     }
+  }
+
+  /**
+   * Logs and returns the fallback signal for a failed completion.
+   * @param {string} error
+   * @returns {{ ok: false, fallback: true, error: string }}
+   */
+  _fail(error) {
+    this._logFailure(error);
+    return { ok: false, fallback: true, error };
   }
 }

@@ -141,3 +141,37 @@ test('ai client - malformed response / invalid JSON resolves to fallback without
   assert.equal(result.fallback, true);
   assert.match(result.error, /JSON/);
 });
+
+test('ai client - failures are logged once a minute, with a Docker hint for localhost', async () => {
+  const warnings = [];
+  const client = new AiClient({
+    url: 'http://localhost:11434/v1',
+    model: 'llama3.2',
+    logger: { warn: line => warnings.push(line) },
+    fetchFn: async () => {
+      throw new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } });
+    }
+  });
+
+  const result = await client.generateCompletion([{ role: 'user', content: 'hi' }]);
+  assert.equal(result.error, 'fetch failed: ECONNREFUSED');
+  await client.generateCompletion([{ role: 'user', content: 'hi' }]);
+
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /localhost:11434\/v1\/chat\/completions failed \(fetch failed: ECONNREFUSED\)/);
+  assert.match(warnings[0], /host\.docker\.internal/);
+});
+
+test('ai client - timeout comes from AI_TIMEOUT_MS and describe() summarises the setup', () => {
+  const previous = process.env.AI_TIMEOUT_MS;
+  process.env.AI_TIMEOUT_MS = '25000';
+  try {
+    const client = new AiClient({ url: 'http://host.docker.internal:11434/v1', model: 'llama3.2' });
+    assert.equal(client.timeoutMs, 25000);
+    assert.equal(client.pointsAtLocalhost, false);
+    assert.equal(client.describe(), 'on (llama3.2 at http://host.docker.internal:11434/v1/chat/completions, 25000ms timeout)');
+  } finally {
+    if (previous === undefined) delete process.env.AI_TIMEOUT_MS; else process.env.AI_TIMEOUT_MS = previous;
+  }
+  assert.match(new AiClient({ url: '' }).describe(), /^off/);
+});

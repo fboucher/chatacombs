@@ -76,14 +76,15 @@ The [streamer guide](docs/streamers.md) walks through each step, including `dock
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
-| `API_KEY` | Bearer token your bot sends on every `/api/v1` call | `dev-secret-key` |
-| `OVERLAY_KEY` | Read-only key in the OBS overlay URL | `dev-overlay-key` |
-| `AI_URL` / `AI_KEY` / `AI_MODEL` | Optional OpenAI-compatible endpoint for narration | empty (built-in text) |
+| `API_KEY` | Secret for your **chat bot**: sent as `Authorization: Bearer` on every `/api/v1` call. Lets it play and start/end adventures. | `dev-secret-key` |
+| `OVERLAY_KEY` | Separate, watch-only key for **OBS**: goes in the overlay URL (`?key=`). Can't change the game. | `dev-overlay-key` |
+| `AI_URL` / `AI_KEY` / `AI_MODEL` | Optional OpenAI-compatible endpoint for narration. For a model on your computer, use `http://host.docker.internal:<port>/v1`, not `localhost` (inside the container, localhost is the container). | empty (built-in text) |
+| `AI_TIMEOUT_MS` | How long to wait for the AI before falling back to built-in text | `10000` |
 | `BOT_NAME` | The name viewers `@mention` | `CB` |
 | `PORT` | Listening port | `8080` |
 | `DATABASE_PATH` | SQLite file | `/data/chatacombs.db` in Docker |
 
-Change both keys before going live. Details are in the [streamer guide](docs/streamers.md#configuration-reference).
+Change both keys before going live, and use two different values. The [streamer guide](docs/streamers.md#which-key-goes-where) explains which key goes where and [how the container reaches services on your computer](docs/streamers.md#reaching-services-on-your-computer-from-the-container).
 
 ## Development
 
