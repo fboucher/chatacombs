@@ -4,6 +4,9 @@
   "description": "Standalone chat-driven dungeon crawler for Twitch streams",
   "type": "module",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node src/index.js",
     "simulate": "node tools/simulator.js",

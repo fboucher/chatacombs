@@ -15,5 +15,16 @@ const app = createApp({ db });
 const server = http.createServer(app);
 
 server.listen(PORT, HOST, () => {
-  console.log(`🏰 Chatacombs service running on http://${HOST}:${PORT}`);
+  console.log(`🏰 Chatacombs service running on http://${HOST}:${PORT} (db: ${db.name})`);
 });
+
+// Shut down cleanly on `docker stop` / Ctrl+C so SQLite checkpoints its WAL
+function shutdown(signal) {
+  console.log(`${signal} received, shutting down`);
+  server.close();
+  server.closeAllConnections?.(); // SSE streams never end on their own
+  db.close();
+  process.exit(0);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

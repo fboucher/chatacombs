@@ -9,7 +9,7 @@ No `package.json` or `src/` yet. Only docs and tooling are committed. Phase 1 (e
 ## Sources of truth (read before writing code)
 
 - `chat-dungeon-crawler-design.md` — game rules, command vocabulary, room types, game events, party/economy/pacing behavior. The glossary.
-- `PLAN.md` — architecture, DB schema, HTTP/SSE API spec, roadmap. Tech stack is fixed there: **Node 20+, native ES modules (`"type": "module"`), Express, `better-sqlite3`, `node --test`**.
+- `PLAN.md` — architecture, DB schema, HTTP/SSE API spec, roadmap. Tech stack is fixed there: **Node 22+, native ES modules (`"type": "module"`), Express, `better-sqlite3`, `node --test`**.
 - Open issues — the actual slice scope (issues #9–#15 under epic #1).
 
 There is no code yet to verify against; the docs describe the target state.

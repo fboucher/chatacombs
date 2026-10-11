@@ -290,7 +290,7 @@ Renders the standalone HTML5 OBS overlay with inline CSS, SVG assets, and SSE cl
 - [ ] Build `test/integration.test.js`: Full simulated game run from theme vote to boss kill via HTTP API and SSE.
 
 ### Phase 7: Dockerization & Documentation — [Issue #7](https://github.com/fboucher/chatacombs/issues/7)
-- [ ] Build `Dockerfile` (Node 20 Alpine, multi-stage build, SQLite `/data` mount).
+- [ ] Build `Dockerfile` (Node 22 Alpine — `better-sqlite3` 13 requires Node 22+, multi-stage build, SQLite `/data` mount).
 - [ ] Build `docker-compose.yml` for zero-effort local testing.
 - [ ] Update `README.md` with complete installation and streamer connection guide.
 
