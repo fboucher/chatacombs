@@ -25,6 +25,7 @@ export function createApp(options = {}) {
   const clock = options.clock;
   const rng = options.rng;
   const pacerIntervalMs = options.pacerIntervalMs;
+  const engineOptions = options.engineOptions;
 
   app.locals.runtimes = runtimes;
 
@@ -56,7 +57,8 @@ export function createApp(options = {}) {
         db,
         clock,
         rng,
-        pacerIntervalMs
+        pacerIntervalMs,
+        engineOptions
       });
       runtimes.set(key, runtime);
     }
