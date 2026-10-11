@@ -32,13 +32,16 @@ export class ChannelRuntime {
     this.overlayClients = new Set(); // Overlay SSE Response objects (game events + overlay_state)
     this._overlayStateScheduled = false;
 
+    this.engineOptions = options.engineOptions || {};
+
     // Initialize Engine
     this.engine = new Engine({
       channel: this.channel,
       db: this.db,
       clock: this.clock,
       rng: this.rng,
-      botName: this.botName
+      botName: this.botName,
+      ...this.engineOptions
     });
 
     // Attempt crash recovery on boot
@@ -179,6 +182,23 @@ export class ChannelRuntime {
     }
     // Chatters join the party and votes change tallies without emitting events
     this._scheduleOverlayState();
+  }
+
+  /**
+   * Ticks the runtime and engine clock, resolving any expired timers.
+   * Pushes any emitted events into the pacer.
+   * @param {number} [currentTime]
+   * @returns {Array<object>}
+   */
+  tick(currentTime = this.clock()) {
+    const events = this.engine.tick(currentTime);
+    if (events && events.length > 0) {
+      for (const ev of events) {
+        this.pacer.push(ev);
+      }
+    }
+    this._scheduleOverlayState();
+    return events;
   }
 
   /**
