@@ -75,7 +75,7 @@ On Windows PowerShell use `curl.exe`. You can also open `http://localhost:8080/h
 
 3. Set **Width 1920** and **Height 1080**, and put the source on top of your other sources. The background is transparent.
 
-The overlay is a ribbon along the bottom of the screen:
+The overlay is a ribbon along the bottom of the screen. It covers three quarters of the width and leaves the bottom-right corner free for your webcam, with the bot's picture and `@BOT_NAME` at the other end:
 
 ![Theme vote](images/ribbon-theme-vote.png)
 
@@ -83,7 +83,7 @@ The overlay is a ribbon along the bottom of the screen:
 
 ![Fight](images/ribbon-combat.png)
 
-Big moments take over the middle of the screen for a few seconds, and dice rolls pop up on the right:
+Big moments take over the middle of the screen for a few seconds, and dice rolls pop up above the ribbon's webcam-side end:
 
 ![Boss warning](images/overlay-boss-appears.png)
 
@@ -97,6 +97,8 @@ Add these to the end of the URL, e.g. `...?key=abc123&audio=1&theme=dark`.
 | `audio` | `1` / `0` | `0` | Retro 8-bit sound effects. Off by default so nothing surprises you live. Tick **Control audio via OBS** on the source to mix it. |
 | `theme` | `retro` / `dark` | `retro` | Pixel RPG look, or a darker modern look |
 | `scale` | `0.8` to `1.2` | `1` | Ribbon size. Try `0.8` for a 720p canvas and `1.2` for 1440p. |
+| `cam` | `right` / `left` | `right` | Bottom corner kept free for your webcam. The bot picture sits in the opposite corner. |
+| `bot` | `skeleton` / `mummy` | `skeleton` | Which bot picture to show. Its label is `@` plus `BOT_NAME` from your `.env` (restart to change it). |
 
 The `dark` theme:
 

@@ -8,7 +8,25 @@ const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..',
 // and get flattened into one classic script for the single-file page.
 const SCRIPT_FILES = ['audio.js', 'overlay.js'];
 
-let cachedPage = null;
+const BOT_IMAGES = {
+  __BOT_IMG_SKELETON__: 'bots/chatacombs-bot-skeleton.png',
+  __BOT_IMG_MUMMY__: 'bots/chatacombs-bot-mummy.png'
+};
+
+const cachedPages = new Map();
+
+/**
+ * Escapes text for an HTML text node or attribute.
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 /**
  * Turns the client ES modules into one self-contained script.
@@ -28,25 +46,38 @@ export function bundleScripts(sources) {
 
 /**
  * Builds the single self-contained overlay HTML (inline CSS + JS, no external URLs).
+ * Bot pictures are inlined as data URIs and the bot's name is baked into the page.
+ * @param {object} [options={}]
+ * @param {string} [options.botName] Shown as `@<botName>` under the bot picture
  * @returns {string}
  */
-export function buildOverlayPage() {
+export function buildOverlayPage(options = {}) {
+  const botName = options.botName || process.env.BOT_NAME || 'CB';
   const read = name => readFileSync(path.join(PUBLIC_DIR, name), 'utf8');
+  const dataUri = name => `data:image/png;base64,${readFileSync(path.join(PUBLIC_DIR, name)).toString('base64')}`;
 
   const html = read('overlay.html');
   const css = read('overlay.css');
   const js = bundleScripts(SCRIPT_FILES.map(read)).replace(/<\/script/gi, '<\\/script');
 
-  return html
+  let page = html
     .replace('/*__OVERLAY_CSS__*/', () => css)
-    .replace('/*__OVERLAY_JS__*/', () => js);
+    .replace('/*__OVERLAY_JS__*/', () => js)
+    .replace('__BOT_NAME__', () => escapeHtml(botName));
+  for (const [placeholder, file] of Object.entries(BOT_IMAGES)) {
+    page = page.replace(placeholder, () => dataUri(file));
+  }
+  return page;
 }
 
 /**
- * Returns the overlay page, built once per process.
+ * Returns the overlay page, built once per process (and bot name).
+ * @param {object} [options={}]
+ * @param {string} [options.botName]
  * @returns {string}
  */
-export function renderOverlayPage() {
-  if (!cachedPage) cachedPage = buildOverlayPage();
-  return cachedPage;
+export function renderOverlayPage(options = {}) {
+  const botName = options.botName || process.env.BOT_NAME || 'CB';
+  if (!cachedPages.has(botName)) cachedPages.set(botName, buildOverlayPage({ botName }));
+  return cachedPages.get(botName);
 }

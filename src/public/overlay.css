@@ -65,15 +65,57 @@ html, body {
 .ribbon {
   position: absolute;
   left: 40px;
-  right: 40px;
+  right: 488px; /* 480px free plus the 8px pixel border */
   bottom: 24px;
   height: 132px;
   display: grid;
-  grid-template-columns: 30fr 40fr 30fr;
+  grid-template-columns: 30fr 40fr 30fr 150px;
   gap: 12px;
   transform: scale(var(--scale));
-  transform-origin: bottom center;
+  transform-origin: bottom right;
   transition: opacity 400ms steps(4);
+}
+
+/* The last quarter of the width (480px) stays free for the webcam; the bot sits at the far end.
+   Scaling grows away from the webcam corner. */
+.cam-right .ribbon {
+  grid-template-columns: 150px 30fr 40fr 30fr;
+}
+
+.cam-right .bot-card { order: -1; }
+
+.cam-left .ribbon {
+  left: 488px;
+  right: 40px;
+  transform-origin: bottom left;
+}
+
+.bot-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.bot-img {
+  display: block;
+  max-width: 150px;
+  max-height: 100px;
+  object-fit: contain;
+}
+
+.bot-img:not([src]) { display: none; }
+
+.bot-name {
+  max-width: 150px;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent);
+  font-size: 20px;
+  text-shadow: 2px 2px 0 var(--border-dark), -2px -2px 0 var(--border-dark), 2px -2px 0 var(--border-dark), -2px 2px 0 var(--border-dark);
 }
 
 .ribbon-section {
@@ -419,7 +461,7 @@ html, body {
 
 .toasts {
   position: absolute;
-  right: 40px;
+  right: 488px;
   bottom: 190px;
   width: 520px;
   display: flex;
@@ -429,6 +471,14 @@ html, body {
   z-index: 10;
   transform: scale(var(--scale));
   transform-origin: bottom right;
+}
+
+/* Toasts sit above the ribbon's webcam-side end, never over the webcam */
+.cam-left .toasts {
+  right: auto;
+  left: 488px;
+  align-items: flex-start;
+  transform-origin: bottom left;
 }
 
 .toast {

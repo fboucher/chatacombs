@@ -25,6 +25,7 @@ class StubElement {
     this.children = [];
     this.parentNode = null;
     this.textContent = '';
+    this.attributes = {};
     this._classes = new Set();
     const props = {};
     this.style = Object.assign(props, {
@@ -41,6 +42,14 @@ class StubElement {
       },
       contains: name => classes.has(name)
     };
+  }
+
+  getAttribute(name) {
+    return name in this.attributes ? this.attributes[name] : null;
+  }
+
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
   }
 
   get className() {
@@ -165,8 +174,13 @@ function activeView(overrides = {}) {
 // --- Config / helpers ----------------------------------------------------------
 
 test('parseConfig - defaults, theme, clamped scale and audio flag', () => {
-  assert.deepEqual(parseConfig(''), { key: '', audio: false, theme: 'retro', scale: 1 });
-  assert.deepEqual(parseConfig('?key=abc&audio=1&theme=dark&scale=1.1'), { key: 'abc', audio: true, theme: 'dark', scale: 1.1 });
+  assert.deepEqual(parseConfig(''), { key: '', audio: false, theme: 'retro', scale: 1, cam: 'right', bot: 'skeleton' });
+  assert.deepEqual(
+    parseConfig('?key=abc&audio=1&theme=dark&scale=1.1&cam=left&bot=mummy'),
+    { key: 'abc', audio: true, theme: 'dark', scale: 1.1, cam: 'left', bot: 'mummy' }
+  );
+  assert.equal(parseConfig('?cam=middle').cam, 'right');
+  assert.equal(parseConfig('?bot=robot').bot, 'skeleton');
   assert.equal(parseConfig('?scale=5').scale, 1.2);
   assert.equal(parseConfig('?scale=0.1').scale, 0.8);
   assert.equal(parseConfig('?scale=nope').scale, 1);
@@ -197,6 +211,20 @@ test('sprites - all grids are 12x12 and render to box-shadows', () => {
 });
 
 // --- Shell / cold boot (#31) ---------------------------------------------------
+
+test('config - webcam corner and bot picture are applied', () => {
+  for (const [config, camClass, picture] of [
+    [{ audio: false, theme: 'retro', scale: 1 }, 'cam-right', 'SKEL'],
+    [{ audio: false, theme: 'retro', scale: 1, cam: 'left', bot: 'mummy' }, 'cam-left', 'MUMMY']
+  ]) {
+    const doc = createStubDocument();
+    doc.getElementById('bot-img').setAttribute('data-skeleton', 'SKEL');
+    doc.getElementById('bot-img').setAttribute('data-mummy', 'MUMMY');
+    createOverlay({ document: doc, config, audio: { playEvent: () => false } });
+    assert.ok(doc.getElementById('overlay').classList.contains(camClass));
+    assert.equal(doc.getElementById('bot-img').getAttribute('src'), picture);
+  }
+});
 
 test('config - dark theme and scale are applied to the root', () => {
   const { $ } = setup({ audio: false, theme: 'dark', scale: 0.9 });
