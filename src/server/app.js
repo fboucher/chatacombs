@@ -18,8 +18,8 @@ import { renderOverlayPage } from './overlayPage.js';
 export function createApp(options = {}) {
   const app = express();
 
-  const apiKey = options.apiKey || process.env.API_KEY;
-  const overlayKey = options.overlayKey || process.env.OVERLAY_KEY;
+  const apiKey = options.apiKey || process.env.API_KEY || 'dev-secret-key';
+  const overlayKey = options.overlayKey || process.env.OVERLAY_KEY || 'dev-overlay-key';
   const db = options.db || null;
   const runtimes = options.runtimes || new Map();
   const clock = options.clock;
