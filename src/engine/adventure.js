@@ -259,7 +259,7 @@ export class Adventure {
 
     const events = [
       createSayEvent(
-        `🗳️ A new dungeon awaits! Vote for a theme with !vote <1-3> (1 min) or suggest one with !theme <idea>:\n` +
+        `🗳️ A new dungeon awaits! Vote for a theme with !vote <1-3> (1 min) or suggest one with !theme <idea>: ` +
         `1: ${choices[0]} | 2: ${choices[1]} | 3: ${choices[2]}`
       )
     ];

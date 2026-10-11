@@ -163,3 +163,9 @@ test('engine harness - processMessage helper works identically', () => {
   assert.equal(result.events.length, 2);
   assert.equal(result.events[1].roll, 10);
 });
+
+test('createSayEvent - folds line breaks so every message is one Twitch line', async () => {
+  const { createSayEvent } = await import('../src/engine/events.js');
+  assert.equal(createSayEvent('Pick one:\n1: a | 2: b').text, 'Pick one: 1: a | 2: b');
+  assert.equal(createSayEvent('a\r\n\r\n  b').text, 'a b');
+});
