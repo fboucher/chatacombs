@@ -45,7 +45,21 @@ export class Engine {
       clock: this.clock
     });
 
-    this.adventure = new Adventure({
+    this.adventure = this._createAdventure();
+
+    this.state = {
+      party: new Map(), // username -> { displayName, lastSeenAt, hp, maxHp, isKnockedOut, ... }
+      ...options.initialState
+    };
+  }
+
+  /**
+   * Builds a fresh idle adventure wired to this engine's clock, rng and repositories.
+   * @param {object} [extra={}] Restored adventure fields
+   * @returns {Adventure}
+   */
+  _createAdventure(extra = {}) {
+    return new Adventure({
       rng: this.rng,
       clock: this.clock,
       voteDurationMs: this.voteDurationMs,
@@ -54,13 +68,23 @@ export class Engine {
       channel: this.channel,
       adventureRepo: this.adventureRepo,
       partyRepo: this.partyRepo,
-      playerRepo: this.playerRepo
+      playerRepo: this.playerRepo,
+      ...extra
     });
+  }
 
-    this.state = {
-      party: new Map(), // username -> { displayName, lastSeenAt, hp, maxHp, isKnockedOut, ... }
-      ...options.initialState
-    };
+  /**
+   * Replaces a finished adventure with a fresh idle one.
+   * Party members stay in the party but start with full HP and a potion;
+   * level, XP and gold are kept in the player repository.
+   */
+  resetAdventure() {
+    this.adventure = this._createAdventure();
+    for (const member of this.state.party.values()) {
+      member.hp = member.maxHp;
+      member.isKnockedOut = false;
+      member.potions = 1;
+    }
   }
 
   get status() {
@@ -85,16 +109,7 @@ export class Engine {
     const restored = this.adventureRepo.restoreActiveAdventure(this.channel);
     if (!restored) return null;
 
-    this.adventure = new Adventure({
-      rng: this.rng,
-      clock: this.clock,
-      voteDurationMs: this.voteDurationMs,
-      inactivityThresholdMs: this.inactivityThresholdMs,
-      nudgeIntervalMs: this.nudgeIntervalMs,
-      channel: this.channel,
-      adventureRepo: this.adventureRepo,
-      partyRepo: this.partyRepo,
-      playerRepo: this.playerRepo,
+    this.adventure = this._createAdventure({
       id: restored.id,
       theme: restored.theme,
       status: restored.status,

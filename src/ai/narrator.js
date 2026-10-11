@@ -21,12 +21,14 @@ export class Narrator {
    * @param {NarrationTemplates} [options.templates]
    * @param {string} [options.botName='CB']
    * @param {string} [options.theme='classic fantasy']
+   * @param {boolean} [options.fallbackToTemplates=true] When false, a failed or unconfigured AI call yields no lines
    */
   constructor(options = {}) {
     this.aiClient = options.aiClient || new AiClient();
     this.templates = options.templates || new NarrationTemplates();
     this.botName = options.botName || process.env.BOT_NAME || 'CB';
     this.theme = options.theme || 'classic fantasy';
+    this.fallbackToTemplates = options.fallbackToTemplates ?? true;
   }
 
   setTheme(theme) {
@@ -40,15 +42,17 @@ export class Narrator {
   /**
    * Attempts AI generation with system prompt and user prompt.
    * If AI fails or times out, returns fallbackFn result.
-   * Never throws and always returns Array<string> (at most 2 messages).
+   * Never throws and always returns Array<string> (at most 2 messages, or none when
+   * template fallback is turned off).
    *
    * @param {string} userPrompt
    * @param {() => Array<string>} fallbackFn
    * @returns {Promise<Array<string>>}
    */
   async _narrateWithFallback(userPrompt, fallbackFn) {
+    const fallback = () => (this.fallbackToTemplates ? fallbackFn() : []);
     if (!this.aiClient.isConfigured) {
-      return fallbackFn();
+      return fallback();
     }
 
     const systemPrompt = buildDungeonMasterSystemPrompt({
@@ -68,7 +72,7 @@ export class Narrator {
       return formatChatMessages(rawLines);
     }
 
-    return fallbackFn();
+    return fallback();
   }
 
   /**

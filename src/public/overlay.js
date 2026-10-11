@@ -28,7 +28,7 @@ export const OVERLAY_EVENT_TYPES = [
 /**
  * Parses the OBS Browser Source URL options.
  * @param {string} search location.search
- * @returns {{ key: string, audio: boolean, theme: 'retro'|'dark', scale: number }}
+ * @returns {{ key: string, audio: boolean, theme: 'retro'|'dark', scale: number, cam: 'left'|'right', bot: 'skeleton'|'mummy' }}
  */
 export function parseConfig(search) {
   const params = new URLSearchParams(search || '');
@@ -41,7 +41,10 @@ export function parseConfig(search) {
     key: params.get('key') || '',
     audio: audioParam === '1' || audioParam === 'true',
     theme: params.get('theme') === 'dark' ? 'dark' : 'retro',
-    scale
+    scale,
+    // Bottom corner kept free for the webcam; the bot sits at the opposite end
+    cam: (params.get('cam') || '').toLowerCase() === 'left' ? 'left' : 'right',
+    bot: (params.get('bot') || '').toLowerCase() === 'mummy' ? 'mummy' : 'skeleton'
   };
 }
 
@@ -238,7 +241,7 @@ export function spriteToBoxShadow(rows, palette, px) {
  */
 export function createOverlay(options) {
   const doc = options.document;
-  const config = options.config || { audio: false, theme: 'retro', scale: 1 };
+  const config = options.config || { audio: false, theme: 'retro', scale: 1, cam: 'right', bot: 'skeleton' };
   const now = options.now || (() => Date.now());
   const timers = options.timers || globalThis;
   const audio = options.audio || { playEvent: () => false };
@@ -273,7 +276,8 @@ export function createOverlay(options) {
     takeoverSub: el('takeover-sub'),
     takeoverStats: el('takeover-stats'),
     takeoverFx: el('takeover-fx'),
-    toasts: el('toasts')
+    toasts: el('toasts'),
+    botImg: el('bot-img')
   };
 
   const state = {
@@ -293,6 +297,11 @@ export function createOverlay(options) {
 
   dom.root.classList.add(`theme-${config.theme}`);
   dom.root.style.setProperty('--scale', String(config.scale));
+  dom.root.classList.add(`cam-${config.cam || 'right'}`);
+  if (dom.botImg) {
+    const picture = dom.botImg.getAttribute(`data-${config.bot || 'skeleton'}`);
+    if (picture) dom.botImg.setAttribute('src', picture);
+  }
 
   // --- Left: progress ---
   function renderProgress(roomNumber, totalRooms, roomName, theme) {

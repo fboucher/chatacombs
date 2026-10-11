@@ -108,8 +108,14 @@ test('overlay page - single self-contained HTML with no external requests', asyn
     assert.doesNotMatch(html, /@import/i);
     assert.doesNotMatch(html, /__OVERLAY_(CSS|JS)__/);
 
-    // The 3 ribbon sections, takeover and toast layers are present
-    for (const id of ['ribbon', 'room-number', 'theme-badge', 'progress-dots', 'encounter', 'enc-hp-fill', 'party-count', 'ko-count', 'timer', 'takeover', 'toasts']) {
+    // Both bot pictures are inlined as PNG data URIs, labelled with the bot name
+    assert.match(html, /data-skeleton="data:image\/png;base64,iVBOR/);
+    assert.match(html, /data-mummy="data:image\/png;base64,iVBOR/);
+    assert.match(html, /id="bot-name" class="bot-name">@[^<]+</);
+    assert.doesNotMatch(html, /__BOT_(NAME|IMG_\w+)__/);
+
+    // The 3 ribbon sections, bot card, takeover and toast layers are present
+    for (const id of ['bot-card', 'bot-img', 'ribbon', 'room-number', 'theme-badge', 'progress-dots', 'encounter', 'enc-hp-fill', 'party-count', 'ko-count', 'timer', 'takeover', 'toasts']) {
       assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
     }
 
@@ -120,6 +126,11 @@ test('overlay page - single self-contained HTML with no external requests', asyn
   } finally {
     await server.close();
   }
+});
+
+test('overlay page - bot label follows BOT_NAME and is escaped', () => {
+  assert.match(buildOverlayPage({ botName: 'Bones' }), /class="bot-name">@Bones</);
+  assert.match(buildOverlayPage({ botName: '<b>x</b>' }), /class="bot-name">@&lt;b&gt;x&lt;\/b&gt;</);
 });
 
 test('bundleScripts - strips module syntax and auto-starts in a browser', () => {

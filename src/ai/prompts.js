@@ -69,7 +69,7 @@ export function buildMonsterIntroPrompt(monster, roomContext = {}) {
  * @param {object} params
  * @returns {string}
  */
-export function buildCombatRecapPrompt({ round = 1, monster, events = [], monsterDefeated = false, partyWiped = false } = {}) {
+export function buildCombatRecapPrompt({ round = null, monster, events = [], monsterDefeated = false, partyWiped = false } = {}) {
   let outcome = 'Round continues.';
   if (monsterDefeated) {
     outcome = `Monster ${monster?.name} defeated! Rewards: ${monster?.xp || 0} XP, ${monster?.gold || 0} gold.`;
@@ -84,7 +84,7 @@ export function buildCombatRecapPrompt({ round = 1, monster, events = [], monste
     .join('; ');
 
   return [
-    `Narrate Round ${round} combat resolution.`,
+    round ? `Narrate Round ${round} combat resolution.` : `Narrate how the fight ended.`,
     `Target: ${monster?.name} (${monster?.hp}/${monster?.maxHp} HP remaining).`,
     `Outcome: ${outcome}`,
     `Key Actions: ${eventsSummary || 'Trading blows.'}`,

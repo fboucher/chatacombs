@@ -13,6 +13,7 @@ import { renderOverlayPage } from './overlayPage.js';
  * @param {() => number} [options.clock]
  * @param {() => number} [options.rng]
  * @param {number} [options.pacerIntervalMs]
+ * @param {string} [options.botName] Bot name for chat Q&A and the overlay label (defaults to BOT_NAME)
  * @returns {import('express').Express}
  */
 export function createApp(options = {}) {
@@ -26,6 +27,7 @@ export function createApp(options = {}) {
   const rng = options.rng;
   const pacerIntervalMs = options.pacerIntervalMs;
   const engineOptions = options.engineOptions;
+  const botName = options.botName || process.env.BOT_NAME || 'CB';
 
   app.locals.runtimes = runtimes;
 
@@ -58,6 +60,7 @@ export function createApp(options = {}) {
         clock,
         rng,
         pacerIntervalMs,
+        botName,
         engineOptions
       });
       runtimes.set(key, runtime);
@@ -135,7 +138,7 @@ export function createApp(options = {}) {
   app.get('/overlay/:channel', requireOverlayKey(overlayKey), (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.send(renderOverlayPage());
+    res.send(renderOverlayPage({ botName }));
   });
 
   // Overlay State Snapshot: GET /overlay/:channel/state (Query key auth: ?key=<OVERLAY_KEY>)
