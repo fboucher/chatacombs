@@ -4,6 +4,9 @@ import { MessagePacer } from './pacer.js';
 import { buildOverlayView } from './overlayView.js';
 
 export const HEARTBEAT_INTERVAL_MS = 15000; // 15 seconds
+export const TICK_INTERVAL_MS = 1000; // vote and combat timers resolve on this clock
+
+const ENDED_STATUSES = new Set(['cleared', 'wiped', 'abandoned']);
 
 /**
  * Per-channel runtime managing the active adventure engine instance,
@@ -18,6 +21,7 @@ export class ChannelRuntime {
    * @param {() => number} [options.rng=Math.random]
    * @param {string} [options.botName='CB']
    * @param {number} [options.pacerIntervalMs=1800]
+   * @param {number} [options.tickIntervalMs=1000] How often timers are checked; 0 disables the ticker
    */
   constructor(options = {}) {
     this.channel = (options.channel || 'default').toLowerCase();
@@ -59,6 +63,14 @@ export class ChannelRuntime {
       this._broadcastComment('keep-alive ping');
     }, HEARTBEAT_INTERVAL_MS);
     if (this.heartbeatTimer.unref) this.heartbeatTimer.unref();
+
+    // Votes and combat rounds close on their own when chat is quiet
+    const tickIntervalMs = options.tickIntervalMs ?? TICK_INTERVAL_MS;
+    this.tickTimer = null;
+    if (tickIntervalMs > 0) {
+      this.tickTimer = setInterval(() => this.tick(), tickIntervalMs);
+      if (this.tickTimer.unref) this.tickTimer.unref();
+    }
   }
 
   /**
@@ -210,7 +222,11 @@ export class ChannelRuntime {
     const currentStatus = this.engine.status;
 
     if (state === 'started') {
-      if (currentStatus === 'idle') {
+      if (ENDED_STATUSES.has(currentStatus)) {
+        // The last adventure is over: start a fresh one (level, XP and gold live in the DB)
+        this.engine.resetAdventure();
+      }
+      if (this.engine.status === 'idle') {
         const events = this.engine.startThemeVote();
         for (const ev of events) {
           this.pacer.push(ev);
@@ -221,7 +237,7 @@ export class ChannelRuntime {
     }
 
     if (state === 'ended') {
-      if (currentStatus !== 'idle' && currentStatus !== 'cleared' && currentStatus !== 'wiped' && currentStatus !== 'abandoned') {
+      if (currentStatus !== 'idle' && !ENDED_STATUSES.has(currentStatus)) {
         const events = this.engine.abandonAdventure('stream_ended');
         for (const ev of events) {
           this.pacer.push(ev);
@@ -249,6 +265,10 @@ export class ChannelRuntime {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
+    }
+    if (this.tickTimer) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = null;
     }
     this.pacer.clear();
     for (const client of this.clients) {
