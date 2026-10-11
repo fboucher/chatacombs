@@ -77,7 +77,7 @@ Plug it into your bot:
 
 ## Try it without a bot
 
-With the container running (see the [README Quick Start](../README.md#quick-start-for-streamers)):
+With the container running (see the [streamer guide](streamers.md#1-run-the-container)):
 
 ```bash
 API_KEY=change-me-bot-secret CHANNEL=mychannel node examples/bot-adapter.js
