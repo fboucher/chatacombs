@@ -256,3 +256,17 @@ test('overlay auth - query key accepts valid OVERLAY_KEY and rejects unauthorize
     await server.close();
   }
 });
+
+test('health - GET /health answers 200 with JSON and needs no auth or database', async () => {
+  const app = createApp({ apiKey: API_KEY, overlayKey: OVERLAY_KEY });
+  const server = await startTestServer(app);
+
+  try {
+    const res = await fetch(`${server.url}/health`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /application\/json/);
+    assert.deepEqual(await res.json(), { status: 'ok', service: 'chatacombs' });
+  } finally {
+    await server.close();
+  }
+});

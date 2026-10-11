@@ -1,0 +1,34 @@
+# Chatacombs: zero-effort local startup.
+#   docker compose up -d --build
+#   curl http://localhost:8080/health
+#
+# Values below are samples. Put real secrets in a .env file next to this one
+# (see .env.example); compose substitutes ${VAR} from it automatically.
+services:
+  chatacombs:
+    build: .
+    image: chatacombs:latest
+    container_name: chatacombs
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    environment:
+      # Bearer token your chat bot sends on every /api/v1 call
+      API_KEY: ${API_KEY:-change-me-bot-secret}
+      # Read-only key used in the OBS overlay URL (?key=...)
+      OVERLAY_KEY: ${OVERLAY_KEY:-change-me-overlay-secret}
+      # Name viewers @mention to ask the narrator questions (e.g. "@CB what's in the chest?")
+      BOT_NAME: ${BOT_NAME:-CB}
+      # Port the service listens on inside the container
+      PORT: ${PORT:-8080}
+      # Optional OpenAI-compatible AI narrator; leave empty to use built-in template text
+      AI_URL: ${AI_URL:-}
+      AI_KEY: ${AI_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      # SQLite file inside the mounted volume
+      DATABASE_PATH: /data/chatacombs.db
+    volumes:
+      - dungeon-data:/data
+
+volumes:
+  dungeon-data:
