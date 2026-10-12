@@ -35,6 +35,19 @@ API_KEY=pick-a-long-random-string-for-your-bot
 OVERLAY_KEY=a-different-random-string-for-obs
 ```
 
+### Which key goes where
+
+Chatacombs has two keys because two different things connect to it, and they need different access.
+
+| | `API_KEY` | `OVERLAY_KEY` |
+| --- | --- | --- |
+| Who uses it | Your chat bot (CloudBot, the example adapter, Streamer.bot, ...) | OBS, in the overlay's Browser Source URL |
+| How it's sent | Header `Authorization: Bearer <API_KEY>` | In the URL: `/overlay/{channel}?key=<OVERLAY_KEY>` |
+| What it allows | Everything that changes the game: sending chat, starting and ending the stream, reading the bot event stream | Watching only: the overlay page, its snapshot and its event stream |
+| If it leaks | Anyone could play as your chat or end your adventure. Change it. | Anyone could watch your overlay. Annoying, not harmful. |
+
+Use two different random values. The overlay key ends up in OBS scene files and screenshots of your settings, so it must never be the same as `API_KEY`.
+
 Then start it:
 
 ```bash
@@ -63,6 +76,25 @@ curl http://localhost:8080/health
 ```
 
 On Windows PowerShell use `curl.exe`. You can also open `http://localhost:8080/health` in a browser. `docker ps` shows the container as `(healthy)` after a few seconds.
+
+### Reaching services on your computer from the container
+
+Inside the container, `localhost` means the container itself, not your computer. When Chatacombs needs something running on your computer, such as a local AI model (Ollama, LM Studio) for `AI_URL`, use **`host.docker.internal`** instead of `localhost`:
+
+```ini
+# Ollama on your computer, Chatacombs in Docker
+AI_URL=http://host.docker.internal:11434/v1
+AI_MODEL=llama3.2
+
+# LM Studio on your computer
+AI_URL=http://host.docker.internal:1234/v1
+```
+
+Docker Desktop (Windows, macOS) provides `host.docker.internal` out of the box, and `docker-compose.yml` maps it on Linux too. With plain `docker run` on Linux, add `--add-host=host.docker.internal:host-gateway`. The local AI server also has to accept connections from Docker: Ollama listens only on `127.0.0.1` unless you set `OLLAMA_HOST=0.0.0.0`.
+
+Going the other way, your bot and OBS run on your computer, so they keep using `http://localhost:8080`. If your bot also runs in Docker, put both containers on the same Compose network and use `http://chatacombs:8080`, or use `http://host.docker.internal:8080` from the bot's container.
+
+The startup log says whether AI narration is on and where it points: `docker compose logs chatacombs` shows a line like `🤖 AI narration: on (llama3.2 at http://host.docker.internal:11434/v1/chat/completions, 10000ms timeout)`.
 
 ## 2. Add the overlay to OBS
 
@@ -106,7 +138,7 @@ The `dark` theme:
 
 ## 3. Connect your bot
 
-Your bot does three things. Every call needs the header `Authorization: Bearer <API_KEY>`.
+Your bot does three things. Every call needs the header `Authorization: Bearer <API_KEY>` (the bot key, never the overlay key).
 
 1. **Forward every chat message** to `POST /api/v1/channels/{channel}/messages`:
 
@@ -155,9 +187,10 @@ Share the [player guide](players.md) with your community, e.g. in a `!dungeon` c
 | --- | --- | --- |
 | `API_KEY` | Bearer token your bot sends on every `/api/v1` call. **Change it.** | `dev-secret-key` |
 | `OVERLAY_KEY` | Read-only key for the OBS overlay URL. **Change it.** | `dev-overlay-key` |
-| `AI_URL` | OpenAI-compatible endpoint for narration, e.g. `https://api.openai.com/v1` or a local server. `/chat/completions` is added if missing. Leave empty for built-in text. | empty |
+| `AI_URL` | OpenAI-compatible endpoint for narration, e.g. `https://api.openai.com/v1`, or `http://host.docker.internal:11434/v1` for a model on your computer ([why not localhost](#reaching-services-on-your-computer-from-the-container)). `/chat/completions` is added if missing. Leave empty for built-in text. | empty |
 | `AI_KEY` | API key for `AI_URL` | empty |
 | `AI_MODEL` | Model name to use with `AI_URL` | empty |
+| `AI_TIMEOUT_MS` | How long to wait for the AI before using built-in text. Raise it for a slow local model. | `10000` |
 | `BOT_NAME` | The name viewers `@mention` to talk to the dungeon master | `CB` |
 | `PORT` | Port the service listens on | `8080` |
 | `DATABASE_PATH` | SQLite file location | `/data/chatacombs.db` in Docker, `./data/chatacombs.db` with `npm start` |
@@ -166,7 +199,7 @@ The `API_KEY` and `OVERLAY_KEY` defaults exist only so the service works out of 
 
 ### AI narration (optional)
 
-Without AI settings, CB uses built-in template text, and the game is fully playable. With `AI_URL`, `AI_KEY` and `AI_MODEL` set, room descriptions, fight narration and answers to `@CB` questions are written by the model. The AI only describes what the game code decided: it can't change HP, dice or loot. If the endpoint is slow or down, the game falls back to the templates and keeps going.
+Without AI settings, CB uses built-in template text, and the game is fully playable. With `AI_URL`, `AI_KEY` and `AI_MODEL` set, the model writes answers to `@CB` questions and adds one line of flavour after the usual facts line when the party enters a room, meets a monster or ends a fight. The AI only describes what the game code decided: it can't change HP, dice or loot. If the endpoint is slow or down, the game falls back to the templates and keeps going, and the container log says why (at most once a minute): `docker compose logs -f chatacombs`.
 
 ## Looking after your data
 
@@ -183,6 +216,7 @@ Everything lives in the `dungeon-data` volume.
 | Overlay page shows `Unauthorized` | The `key=` in the OBS URL must match `OVERLAY_KEY` exactly. |
 | Bot gets `401` | The bot must send `Authorization: Bearer <API_KEY>` with the same value as the container. |
 | Overlay is blank | It stays mostly empty until a game starts. Have your bot send `stream` `started`, or use the test adapter. |
+| `@CB` always answers "the echoes of ... swallow your words" | That is the built-in text, so the AI isn't being reached. Check the log for an `[ai]` line. The usual cause is `AI_URL` pointing at `localhost` from inside Docker: use `host.docker.internal` ([details](#reaching-services-on-your-computer-from-the-container)). |
 | CB never answers in chat | Your bot must be listening to `/events` and posting `say` lines. Run the example adapter to confirm the server side works. |
 | Port 8080 is taken | Set `PORT=8081` in `.env` and use that port in the URLs. |
 | Logs | `docker compose logs -f` |
