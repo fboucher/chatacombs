@@ -560,7 +560,7 @@ html, body {
   left: calc((100% - var(--die-size)) * var(--x, 0.5));
   width: var(--die-size);
   height: var(--die-size);
-  animation: die-roll 2200ms steps(6) forwards;
+  animation: die-roll 4000ms steps(6) forwards;
 }
 
 .die-shape {
@@ -569,7 +569,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: visible;
-  animation: die-tumble 2200ms steps(6) forwards;
+  animation: die-tumble 4000ms steps(6) forwards;
 }
 
 .die-body { fill: var(--panel); stroke: var(--border); stroke-width: 3; stroke-linejoin: round; }
@@ -587,7 +587,7 @@ html, body {
   color: var(--text);
   text-shadow: 3px 3px 0 var(--border-dark);
   opacity: 0;
-  animation: die-reveal 2200ms steps(6) forwards;
+  animation: die-reveal 4000ms steps(6) forwards;
 }
 
 .die.is-hit .die-body { stroke: var(--good); }
@@ -599,28 +599,29 @@ html, body {
 .die.is-crit .die-value { color: var(--panel); text-shadow: none; }
 .die.is-crit .die-shape { filter: drop-shadow(0 0 14px var(--accent)); }
 
-/* Drops in from above, bounces once on the ribbon, then fades */
+/* Drops in from above, bounces once on the ribbon, rests so the number can be read, then fades.
+   The drop and bounce take ~1.2s of the 4s; the settled die stays up until 3.6s */
 @keyframes die-roll {
   0% { opacity: 0; transform: translateY(-240px); }
-  8% { opacity: 1; }
-  40% { transform: translateY(0); }
-  48% { transform: translateY(-28px); }
-  56% { transform: translateY(0); }
-  85% { opacity: 1; transform: translateY(0); }
+  4% { opacity: 1; }
+  22% { transform: translateY(0); }
+  26% { transform: translateY(-28px); }
+  31% { transform: translateY(0); }
+  90% { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(0); }
 }
 
 /* Spins while falling and settles face-up as it lands */
 @keyframes die-tumble {
   0% { transform: rotate(-540deg); }
-  40% { transform: rotate(-30deg); }
-  56%, 100% { transform: rotate(0deg); }
+  22% { transform: rotate(-30deg); }
+  31%, 100% { transform: rotate(0deg); }
 }
 
 /* The engine's number only shows once the die has settled */
 @keyframes die-reveal {
-  0%, 52% { opacity: 0; }
-  58%, 85% { opacity: 1; }
+  0%, 29% { opacity: 0; }
+  32%, 90% { opacity: 1; }
   100% { opacity: 0; }
 }
 
