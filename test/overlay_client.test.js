@@ -13,6 +13,8 @@ import {
   TAKEOVER_DURATIONS_MS,
   TOAST_DURATION_MS,
   MAX_TOASTS,
+  DIE_DURATION_MS,
+  MAX_DICE,
   OVERLAY_EVENT_TYPES
 } from '../src/public/overlay.js';
 
@@ -134,7 +136,7 @@ function createFakeTimers() {
   };
 }
 
-function setup(config) {
+function setup(config, random) {
   const doc = createStubDocument();
   const timers = createFakeTimers();
   const sounds = [];
@@ -143,7 +145,8 @@ function setup(config) {
     config: config || { audio: false, theme: 'retro', scale: 1 },
     now: timers.now,
     timers,
-    audio: { playEvent: (type) => { sounds.push(type); return true; } }
+    audio: { playEvent: (type) => { sounds.push(type); return true; } },
+    random
   });
   const $ = id => doc.getElementById(id);
   return { doc, timers, overlay, $, sounds };
@@ -550,6 +553,43 @@ test('toasts - a plain dice roll (no combat) still shows the roll', () => {
   overlay.handleEvent('dice_roll', { user: 'zed', displayName: 'Zed', roll: 7 });
   assert.match($('toasts').children[0].allText, /Zed rolled 7/);
   assert.ok(!$('encounter').classList.contains('has-monster'));
+});
+
+test('dice - every throw rolls its own d20 at its own spot, showing the engine roll', () => {
+  const spots = [0.1, 0.55, 0.9];
+  const { overlay, $, timers } = setup(undefined, () => spots.shift());
+  overlay.applySnapshot(activeView());
+
+  overlay.handleEvent('dice_roll', { user: 'a', roll: 15, total: 15, dc: 12, success: true });
+  overlay.handleEvent('dice_roll', { user: 'b', roll: 3, total: 3, dc: 12, success: false });
+  overlay.handleEvent('dice_roll', { user: 'c', roll: 20, total: 20, dc: 12, success: true, isCrit: true });
+
+  const dice = $('dice').children;
+  assert.equal(dice.length, 3);
+  assert.deepEqual(dice.map(d => d.style['--x']), ['0.100', '0.550', '0.900']);
+  assert.deepEqual(dice.map(d => d.allText.trim()), ['15', '3', '20']);
+  assert.ok(dice[0].classList.contains('is-hit'));
+  assert.ok(dice[1].classList.contains('is-miss'));
+  assert.ok(dice[2].classList.contains('is-crit'));
+
+  timers.advance(DIE_DURATION_MS);
+  assert.equal($('dice').children.length, 0);
+});
+
+test('dice - a plain roll still rolls; spots stay in bounds; the tray is capped', () => {
+  const { overlay, $ } = setup(undefined, () => 7);
+  overlay.applySnapshot(idleView);
+  overlay.handleEvent('dice_roll', { user: 'zed', roll: 7 });
+  const die = $('dice').children[0];
+  assert.equal(die.className, 'die');
+  assert.equal(die.style['--x'], '1.000');
+
+  overlay.handleEvent('dice_roll', { user: 'zed' }); // no roll value, no die
+  assert.equal($('dice').children.length, 1);
+
+  for (let i = 0; i < MAX_DICE + 3; i++) overlay.handleEvent('dice_roll', { user: 'u', roll: i + 1 });
+  assert.equal($('dice').children.length, MAX_DICE);
+  assert.equal($('dice').children[MAX_DICE - 1].allText.trim(), String(MAX_DICE + 3));
 });
 
 test('destroy - clears every pending timer', () => {
