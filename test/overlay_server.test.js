@@ -1,8 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { createApp } from '../src/server/app.js';
-import { buildOverlayPage, bundleScripts } from '../src/server/overlayPage.js';
+import { buildOverlayPage, bundleScripts, listBotImages, resolveBotImage } from '../src/server/overlayPage.js';
 import { buildOverlayView } from '../src/server/overlayView.js';
 
 const API_KEY = 'test-secret-key';
@@ -108,11 +111,10 @@ test('overlay page - single self-contained HTML with no external requests', asyn
     assert.doesNotMatch(html, /@import/i);
     assert.doesNotMatch(html, /__OVERLAY_(CSS|JS)__/);
 
-    // Both bot pictures are inlined as PNG data URIs, labelled with the bot name
-    assert.match(html, /data-skeleton="data:image\/png;base64,iVBOR/);
-    assert.match(html, /data-mummy="data:image\/png;base64,iVBOR/);
+    // The default bot picture is inlined as a PNG data URI, labelled with the bot name
+    assert.match(html, /data-picture="data:image\/png;base64,iVBOR/);
     assert.match(html, /id="bot-name" class="bot-name">@[^<]+</);
-    assert.doesNotMatch(html, /__BOT_(NAME|IMG_\w+)__/);
+    assert.doesNotMatch(html, /__BOT_(NAME|IMG)__/);
 
     // The 3 ribbon sections, bot card, takeover and toast layers are present
     for (const id of ['bot-card', 'bot-img', 'ribbon', 'room-number', 'theme-badge', 'progress-dots', 'encounter', 'enc-hp-fill', 'party-count', 'ko-count', 'timer', 'takeover', 'toasts']) {
@@ -126,6 +128,29 @@ test('overlay page - single self-contained HTML with no external requests', asyn
   } finally {
     await server.close();
   }
+});
+
+test('overlay page - ?bot= picks any chatacombs-bot-<name> picture, skeleton otherwise', async () => {
+  const images = listBotImages();
+  for (const name of ['skeleton', 'mummy', 'cyberpunk', 'pirate', 'retro']) {
+    assert.equal(images.get(name), `chatacombs-bot-${name}.png`, name);
+  }
+  const picture = html => html.match(/data-picture="([^"]+)"/)[1];
+  const skeleton = picture(buildOverlayPage({ bot: 'skeleton' }));
+  assert.notEqual(picture(buildOverlayPage({ bot: 'Pirate' })), skeleton);
+  assert.equal(picture(buildOverlayPage({ bot: 'nope' })), skeleton);
+  assert.equal(picture(buildOverlayPage({ bot: '../../index' })), skeleton);
+  assert.equal(picture(buildOverlayPage({})), skeleton);
+
+  // A dropped-in file is picked up by its name; PNG wins over the SVG source
+  const dir = mkdtempSync(path.join(tmpdir(), 'bots-'));
+  for (const file of ['chatacombs-bot-ninja.svg', 'chatacombs-bot-ninja.png', 'chatacombs-bot-robot.webp', 'notes.txt', 'bot-x.png']) {
+    writeFileSync(path.join(dir, file), '');
+  }
+  const custom = listBotImages(dir);
+  assert.deepEqual([...custom.entries()].sort(), [['ninja', 'chatacombs-bot-ninja.png'], ['robot', 'chatacombs-bot-robot.webp']]);
+  assert.deepEqual(resolveBotImage('ROBOT', custom), { name: 'robot', file: 'chatacombs-bot-robot.webp' });
+  assert.equal(resolveBotImage('ghost', custom), null);
 });
 
 test('overlay page - bot label follows BOT_NAME and is escaped', () => {

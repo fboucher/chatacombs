@@ -6,6 +6,7 @@
 
 import { AiClient } from './client.js';
 import { formatChatMessages } from './templates.js';
+import { getSoul } from './soul.js';
 import { buildDungeonMasterSystemPrompt, buildChatQnaPrompt } from './prompts.js';
 
 export const DEFAULT_QNA_COOLDOWN_MS = 30 * 1000; // 30 seconds
@@ -14,15 +15,17 @@ export class ChatQnaHandler {
   /**
    * @param {object} [options={}]
    * @param {AiClient} [options.aiClient]
-   * @param {string} [options.botName='CB']
+   * @param {string} [options.botName='Bones']
    * @param {string} [options.theme='classic fantasy']
+   * @param {string} [options.soul] Extra context for the AI (defaults to soul.md)
    * @param {number} [options.cooldownMs=30000]
    * @param {() => number} [options.clock=() => Date.now()]
    */
   constructor(options = {}) {
     this.aiClient = options.aiClient || new AiClient();
-    this.botName = (options.botName || process.env.BOT_NAME || 'CB').toLowerCase();
+    this.botName = (options.botName || process.env.BOT_NAME || 'Bones').toLowerCase();
     this.theme = options.theme || 'classic fantasy';
+    this.soul = options.soul ?? getSoul();
     this.cooldownMs = options.cooldownMs ?? DEFAULT_QNA_COOLDOWN_MS;
     this.clock = options.clock || (() => Date.now());
 
@@ -39,7 +42,7 @@ export class ChatQnaHandler {
   }
 
   /**
-   * Checks whether a message addresses the bot (e.g. "@CB what is that?", "ceebee help").
+   * Checks whether a message addresses the bot (e.g. "@Bones what is that?", "bones help").
    * @param {string} text
    * @returns {boolean}
    */
@@ -136,7 +139,8 @@ export class ChatQnaHandler {
     // 4. Call AI with prompt
     const systemPrompt = buildDungeonMasterSystemPrompt({
       botName: this.botName,
-      theme: this.theme
+      theme: this.theme,
+      soul: this.soul
     });
 
     const userPrompt = buildChatQnaPrompt({

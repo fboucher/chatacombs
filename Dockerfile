@@ -22,6 +22,8 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json ./
 COPY --chown=node:node src ./src
+# soul_sample.md is always there, so this also picks up an optional soul.md (AI notes)
+COPY --chown=node:node soul*.md ./
 
 # The SQLite database lives on a volume owned by the non-root "node" user
 RUN mkdir -p /data && chown node:node /data

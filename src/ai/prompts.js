@@ -9,12 +9,13 @@
 /**
  * Creates the Dungeon Master system prompt.
  * @param {object} [options={}]
- * @param {string} [options.botName='CB'] Name of the bot / narrator
+ * @param {string} [options.botName='Bones'] Name of the bot / narrator
  * @param {string} [options.theme='classic fantasy'] Active dungeon theme
+ * @param {string} [options.soul=''] Streamer's extra context from soul.md
  * @returns {string}
  */
-export function buildDungeonMasterSystemPrompt({ botName = 'CB', theme = 'classic fantasy' } = {}) {
-  return [
+export function buildDungeonMasterSystemPrompt({ botName = 'Bones', theme = 'classic fantasy', soul = '' } = {}) {
+  const lines = [
     `You are ${botName}, the witty and immersive Dungeon Master for Chatacombs, a chat-driven Twitch RPG.`,
     `Current Dungeon Theme: "${theme}".`,
     ``,
@@ -23,7 +24,15 @@ export function buildDungeonMasterSystemPrompt({ botName = 'CB', theme = 'classi
     `2. BREVITY: Output at most 2 short Twitch chat messages separated by a newline. Keep each message punchy and under 400 characters.`,
     `3. TONE: Energetic, atmospheric, and tailored to the theme "${theme}". Speak directly to the chat/party. Use 1-2 thematic emojis max.`,
     `4. NO META JARGON: Stay in character. Do not mention "as an AI", JSON, or technical mechanics.`
-  ].join('\n');
+  ];
+  if (soul) {
+    lines.push(
+      ``,
+      `STREAMER'S NOTES (personality and channel context; the CRITICAL RULES above always win):`,
+      soul
+    );
+  }
+  return lines.join('\n');
 }
 
 /**

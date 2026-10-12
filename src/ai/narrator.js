@@ -13,21 +13,24 @@ import {
   buildCombatRecapPrompt,
   buildMomentPrompt
 } from './prompts.js';
+import { getSoul } from './soul.js';
 
 export class Narrator {
   /**
    * @param {object} [options={}]
    * @param {AiClient} [options.aiClient]
    * @param {NarrationTemplates} [options.templates]
-   * @param {string} [options.botName='CB']
+   * @param {string} [options.botName='Bones']
    * @param {string} [options.theme='classic fantasy']
+   * @param {string} [options.soul] Extra context for the AI (defaults to soul.md)
    * @param {boolean} [options.fallbackToTemplates=true] When false, a failed or unconfigured AI call yields no lines
    */
   constructor(options = {}) {
     this.aiClient = options.aiClient || new AiClient();
     this.templates = options.templates || new NarrationTemplates();
-    this.botName = options.botName || process.env.BOT_NAME || 'CB';
+    this.botName = options.botName || process.env.BOT_NAME || 'Bones';
     this.theme = options.theme || 'classic fantasy';
+    this.soul = options.soul ?? getSoul();
     this.fallbackToTemplates = options.fallbackToTemplates ?? true;
   }
 
@@ -57,7 +60,8 @@ export class Narrator {
 
     const systemPrompt = buildDungeonMasterSystemPrompt({
       botName: this.botName,
-      theme: this.theme
+      theme: this.theme,
+      soul: this.soul
     });
 
     const messages = [

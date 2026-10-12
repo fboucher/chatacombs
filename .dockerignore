@@ -13,6 +13,9 @@ tools
 docs
 examples
 *.md
+# ...except the streamer's AI notes, baked in at build time when present
+!soul.md
+!soul_sample.md
 architecture.png
 .vscode
 .claude

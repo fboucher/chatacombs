@@ -90,7 +90,7 @@ Then type into the terminal as if you were chat:
 alice: !vote 1
 bob: !theme haunted house
 alice: !explore
-bob: @CB what does this room smell like?
+bob: @Bones what does this room smell like?
 ```
 
 `[bot] ...` lines are what your bot would post to Twitch, and `[effect] ...` lines are the game moments it could react to. Open `http://localhost:8080/overlay/mychannel?key=<OVERLAY_KEY>` in a browser to watch the overlay at the same time. On Windows PowerShell set the variables first: `$env:API_KEY="change-me-bot-secret"; $env:CHANNEL="mychannel"; node examples/bot-adapter.js`.

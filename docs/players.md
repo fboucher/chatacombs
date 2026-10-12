@@ -1,13 +1,13 @@
 # Player guide
 
-Chatacombs is a dungeon crawler you play from the stream chat. Everyone who chats is in the party, the bot (called **CB** here) is the dungeon master, and the stream shows the big moments on screen. You don't need to sign up or install anything. Just type.
+Chatacombs is a dungeon crawler you play from the stream chat. Everyone who chats is in the party, the bot (called **Bones** here) is the dungeon master, and the stream shows the big moments on screen. You don't need to sign up or install anything. Just type.
 
 ![The overlay during a fight](images/overlay-scene-combat.png)
 
 ## The 30-second version
 
 1. When a new dungeon starts, vote for a theme with `!vote 1`, `!vote 2` or `!vote 3`.
-2. In each room, search it with `!explore`, then pick a way out with `!go north` (or whatever exits CB lists).
+2. In each room, search it with `!explore`, then pick a way out with `!go north` (or whatever exits Bones lists).
 3. When a monster shows up, everyone picks one action per round: `!attack`, `!defend`, or `!heal @friend`.
 4. Beat the boss in the last room. Gold and XP stay with you for the next adventure.
 
@@ -28,7 +28,8 @@ You're in the party as soon as you chat. Anyone who has said anything in the las
 | `!item <name>` | Fight or room | Uses an item, e.g. `!item potion` |
 | `!heal @name` | Fight or room | Gives one of your potions to a friend |
 | `!hero` | Any time | Shows your HP, level, XP, gold and potions |
-| `@CB <question>` | Any time | Ask the dungeon master anything, in character |
+| `@Bones <question>` | Any time | Ask the dungeon master anything, in character |
+| `Bones help` | Any time | Lists the commands with a link to this guide. `Bones how do I play?`, `Bones commands`, `Bones doc` and `Bones ?` work too. Answered once every 5 minutes for the whole chat. |
 
 Anything that isn't a command is just normal chat, so talk as much as you like. The bot may have a different name on your streamer's channel; ask with `@` and its name.
 
@@ -36,7 +37,7 @@ Anything that isn't a command is just normal chat, so talk as much as you like. 
 
 ### 1. Theme vote
 
-When the stream starts, CB offers three themes. The vote lasts one minute. Suggest your own with `!theme`: the first two suggestions replace the random choices. If nobody votes, the party goes with classic fantasy.
+When the stream starts, Bones offers three themes. The vote lasts one minute. Suggest your own with `!theme`: the first two suggestions replace the random choices. If nobody votes, the party goes with classic fantasy.
 
 ![Theme vote in chat](images/chat-theme-vote.png)
 
@@ -46,7 +47,7 @@ The overlay shows the vote and its countdown at the bottom of the stream:
 
 ### 2. Exploring rooms
 
-A dungeon has 10 to 15 rooms. CB describes each one and lists its exits. Type `!explore` to search for treasure, but be careful: some rooms hide traps. A good roll spots the trap and disarms it; a bad one hurts the whole party.
+A dungeon has 10 to 15 rooms. Bones describes each one and lists its exits. Type `!explore` to search for treasure, but be careful: some rooms hide traps. A good roll spots the trap and disarms it; a bad one hurts the whole party.
 
 The first `!go <exit>` opens a one-minute exit vote. The exit with the most votes wins, and a tie goes to the exit that was voted for first.
 
@@ -109,5 +110,5 @@ Each level after that needs 50 XP more than the step before.
 - **Explore before you leave.** Most treasure (and potions) come from `!explore`.
 - **Watch your friends' HP.** A `!heal` at the right moment is worth more than an `!attack`.
 - **Defend when you're low.** Half damage can be the difference between standing and knocked out.
-- **Ask CB things.** `@CB is that chest trapped?` gets an answer in character. CB never changes the facts of the game, so its answers won't trick you.
+- **Ask Bones things.** `@Bones is that chest trapped?` gets an answer in character. Bones never changes the facts of the game, so its answers won't trick you.
 - **Quiet chat pauses the game.** Timers only run while people are talking, so nobody loses a fight while chat is away.

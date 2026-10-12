@@ -19,6 +19,11 @@ export const DIE_DURATION_MS = 2200;
 export const MAX_DICE = 8;
 export const TIMER_TICK_MS = 250;
 export const RECONNECT_DELAY_MS = 3000;
+// How long a cleared or wiped dungeon's result stays up before the boxes slide away
+export const RESULT_HOLD_MS = 30000;
+// No adventure running: only the bot stays on screen
+const STOWED_STATUSES = new Set(['idle', 'abandoned']);
+const RESULT_STATUSES = new Set(['cleared', 'wiped']);
 
 // Game events the overlay listens for on the SSE stream
 export const OVERLAY_EVENT_TYPES = [
@@ -30,7 +35,7 @@ export const OVERLAY_EVENT_TYPES = [
 /**
  * Parses the OBS Browser Source URL options.
  * @param {string} search location.search
- * @returns {{ key: string, audio: boolean, theme: 'retro'|'dark', scale: number, cam: 'left'|'right', bot: 'skeleton'|'mummy' }}
+ * @returns {{ key: string, audio: boolean, theme: 'retro'|'dark', scale: number, cam: 'left'|'right' }}
  */
 export function parseConfig(search) {
   const params = new URLSearchParams(search || '');
@@ -45,8 +50,7 @@ export function parseConfig(search) {
     theme: params.get('theme') === 'dark' ? 'dark' : 'retro',
     scale,
     // Bottom corner kept free for the webcam; the bot sits at the opposite end
-    cam: (params.get('cam') || '').toLowerCase() === 'left' ? 'left' : 'right',
-    bot: (params.get('bot') || '').toLowerCase() === 'mummy' ? 'mummy' : 'skeleton'
+    cam: (params.get('cam') || '').toLowerCase() === 'left' ? 'left' : 'right'
   };
 }
 
@@ -244,7 +248,7 @@ export function spriteToBoxShadow(rows, palette, px) {
  */
 export function createOverlay(options) {
   const doc = options.document;
-  const config = options.config || { audio: false, theme: 'retro', scale: 1, cam: 'right', bot: 'skeleton' };
+  const config = options.config || { audio: false, theme: 'retro', scale: 1, cam: 'right' };
   const now = options.now || (() => Date.now());
   const timers = options.timers || globalThis;
   const audio = options.audio || { playEvent: () => false };
@@ -295,6 +299,7 @@ export function createOverlay(options) {
     timer: null, // { label, endsAt, durationMs }
     timerHandle: null,
     flashHandle: null,
+    stowHandle: null, // pending slide-away after a cleared or wiped dungeon
     takeover: null, // { type, handle }
     takeoverQueue: [],
     toasts: [], // { node, handle }
@@ -304,8 +309,9 @@ export function createOverlay(options) {
   dom.root.classList.add(`theme-${config.theme}`);
   dom.root.style.setProperty('--scale', String(config.scale));
   dom.root.classList.add(`cam-${config.cam || 'right'}`);
+  // The server inlines the picture picked with ?bot= (see listBotImages in overlayPage.js)
   if (dom.botImg) {
-    const picture = dom.botImg.getAttribute(`data-${config.bot || 'skeleton'}`);
+    const picture = dom.botImg.getAttribute('data-picture');
     if (picture) dom.botImg.setAttribute('src', picture);
   }
 
@@ -445,6 +451,31 @@ export function createOverlay(options) {
     }
   }
 
+  // --- Stowing: the three boxes slide below the screen while no game runs ---
+  function setStowed(stowed) {
+    if (state.stowHandle) {
+      timers.clearTimeout(state.stowHandle);
+      state.stowHandle = null;
+    }
+    dom.ribbon.classList.toggle('is-stowed', stowed);
+  }
+
+  function updateStowed(status) {
+    if (!status || STOWED_STATUSES.has(status)) {
+      setStowed(true);
+    } else if (RESULT_STATUSES.has(status)) {
+      // Keep the result readable for a while, then stow (once per ended adventure)
+      if (!state.stowHandle && !dom.ribbon.classList.contains('is-stowed')) {
+        state.stowHandle = timers.setTimeout(() => {
+          state.stowHandle = null;
+          dom.ribbon.classList.add('is-stowed');
+        }, RESULT_HOLD_MS);
+      }
+    } else {
+      setStowed(false);
+    }
+  }
+
   // --- Snapshot ---
   function applySnapshot(view) {
     if (!view || typeof view !== 'object') return;
@@ -452,6 +483,7 @@ export function createOverlay(options) {
 
     const idle = view.status === 'idle' || !view.status;
     dom.ribbon.classList.toggle('is-idle', idle);
+    updateStowed(view.status);
 
     const progress = view.progress || { roomNumber: 0, totalRooms: 0 };
     const badge = view.theme || (view.status === 'voting' ? 'Theme vote' : null);
@@ -631,6 +663,7 @@ export function createOverlay(options) {
     switch (type) {
       case 'adventure_started':
         dom.ribbon.classList.remove('is-idle');
+        setStowed(false);
         renderProgress(state.roomNumber, data.totalRooms || state.totalRooms, undefined, data.theme);
         break;
       case 'room_entered':
@@ -692,6 +725,7 @@ export function createOverlay(options) {
     destroy() {
       if (state.timerHandle) timers.clearInterval(state.timerHandle);
       if (state.flashHandle) timers.clearTimeout(state.flashHandle);
+      if (state.stowHandle) timers.clearTimeout(state.stowHandle);
       if (state.takeover) timers.clearTimeout(state.takeover.handle);
       for (const entry of [...state.toasts]) removeToast(entry);
       for (const entry of [...state.dice]) removeDie(entry);

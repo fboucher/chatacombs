@@ -15,6 +15,7 @@ import {
   MAX_TOASTS,
   DIE_DURATION_MS,
   MAX_DICE,
+  RESULT_HOLD_MS,
   OVERLAY_EVENT_TYPES
 } from '../src/public/overlay.js';
 
@@ -177,13 +178,12 @@ function activeView(overrides = {}) {
 // --- Config / helpers ----------------------------------------------------------
 
 test('parseConfig - defaults, theme, clamped scale and audio flag', () => {
-  assert.deepEqual(parseConfig(''), { key: '', audio: false, theme: 'retro', scale: 1, cam: 'right', bot: 'skeleton' });
+  assert.deepEqual(parseConfig(''), { key: '', audio: false, theme: 'retro', scale: 1, cam: 'right' });
   assert.deepEqual(
     parseConfig('?key=abc&audio=1&theme=dark&scale=1.1&cam=left&bot=mummy'),
-    { key: 'abc', audio: true, theme: 'dark', scale: 1.1, cam: 'left', bot: 'mummy' }
+    { key: 'abc', audio: true, theme: 'dark', scale: 1.1, cam: 'left' }
   );
   assert.equal(parseConfig('?cam=middle').cam, 'right');
-  assert.equal(parseConfig('?bot=robot').bot, 'skeleton');
   assert.equal(parseConfig('?scale=5').scale, 1.2);
   assert.equal(parseConfig('?scale=0.1').scale, 0.8);
   assert.equal(parseConfig('?scale=nope').scale, 1);
@@ -218,11 +218,11 @@ test('sprites - all grids are 12x12 and render to box-shadows', () => {
 test('config - webcam corner and bot picture are applied', () => {
   for (const [config, camClass, picture] of [
     [{ audio: false, theme: 'retro', scale: 1 }, 'cam-right', 'SKEL'],
-    [{ audio: false, theme: 'retro', scale: 1, cam: 'left', bot: 'mummy' }, 'cam-left', 'MUMMY']
+    [{ audio: false, theme: 'retro', scale: 1, cam: 'left' }, 'cam-left', 'MUMMY']
   ]) {
     const doc = createStubDocument();
-    doc.getElementById('bot-img').setAttribute('data-skeleton', 'SKEL');
-    doc.getElementById('bot-img').setAttribute('data-mummy', 'MUMMY');
+    // The server inlines the chosen picture; the client only copies it into src
+    doc.getElementById('bot-img').setAttribute('data-picture', picture);
     createOverlay({ document: doc, config, audio: { playEvent: () => false } });
     assert.ok(doc.getElementById('overlay').classList.contains(camClass));
     assert.equal(doc.getElementById('bot-img').getAttribute('src'), picture);
@@ -272,6 +272,44 @@ test('cold boot - active snapshot fills all three sections', () => {
   assert.ok($('ko-indicator').classList.contains('has-ko'));
   assert.equal($('timer-label').textContent, 'Round 2');
   assert.equal($('timer-text').textContent, '0:35');
+});
+
+test('stow - boxes slide away while no game runs and come back when one starts', () => {
+  const { overlay, $, timers } = setup();
+  const stowed = () => $('ribbon').classList.contains('is-stowed');
+
+  overlay.applySnapshot(idleView);
+  assert.ok(stowed(), 'idle: only the bot is visible');
+
+  overlay.handleEvent('adventure_started', { theme: 'sunken crypt', totalRooms: 5 });
+  assert.ok(!stowed(), 'adventure start brings the boxes back');
+
+  overlay.applySnapshot({ ...idleView, status: 'voting' });
+  assert.ok(!stowed(), 'the theme vote shows on the boxes');
+
+  // A cleared dungeon keeps its result up for RESULT_HOLD_MS; repeat snapshots don't restart the wait
+  overlay.applySnapshot(activeView({ status: 'cleared', encounter: null, timer: null }));
+  timers.advance(RESULT_HOLD_MS - 1);
+  overlay.applySnapshot(activeView({ status: 'cleared', encounter: null, timer: null }));
+  assert.ok(!stowed());
+  timers.advance(1);
+  assert.ok(stowed());
+  overlay.applySnapshot(activeView({ status: 'cleared', encounter: null, timer: null }));
+  assert.ok(stowed(), 'stays down after the hold');
+
+  // A new game cancels a pending stow
+  overlay.applySnapshot(activeView({ status: 'wiped', encounter: null, timer: null }));
+  overlay.applySnapshot(activeView());
+  assert.ok(!stowed());
+  overlay.applySnapshot(activeView({ status: 'wiped', encounter: null, timer: null }));
+  overlay.handleEvent('adventure_started', { theme: 'again', totalRooms: 5 });
+  timers.advance(RESULT_HOLD_MS * 2);
+  assert.ok(!stowed());
+
+  overlay.applySnapshot({ ...idleView, status: 'abandoned' });
+  assert.ok(stowed(), 'stream ended: stowed right away');
+  overlay.destroy();
+  assert.equal(timers.count, 0);
 });
 
 // --- Live ribbon (#32) ---------------------------------------------------------

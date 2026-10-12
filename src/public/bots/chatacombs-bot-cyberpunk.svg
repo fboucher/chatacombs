@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 530 520" width="530" height="520">
+<defs><clipPath id="b"><polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470"/></clipPath></defs>
+<!-- neon mohawk -->
+<g stroke="#111" stroke-width="7" stroke-linejoin="round">
+  <polygon points="196,186 206,96 236,176" fill="#ff2bd6"/>
+  <polygon points="226,176 246,70 276,172" fill="#18f0ff"/>
+  <polygon points="262,172 290,58 312,162" fill="#ff2bd6"/>
+  <polygon points="300,162 336,76 344,152" fill="#18f0ff"/>
+</g>
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="#1d1733"/>
+<!-- circuit traces on the jacket -->
+<g clip-path="url(#b)" fill="none" stroke="#18f0ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M60,300 L110,300 L130,320 L130,420"/><circle cx="130" cy="430" r="8" fill="#18f0ff"/>
+  <path d="M470,300 L420,300 L400,320 L400,420"/><circle cx="400" cy="430" r="8" fill="#18f0ff"/>
+  <path d="M210,400 L210,440 L170,470"/><path d="M320,400 L320,440 L360,470"/>
+  <path d="M265,400 L265,470" stroke="#ff2bd6"/>
+</g>
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="none" stroke="#111" stroke-width="12" stroke-linejoin="round"/>
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="none" stroke="#ff2bd6" stroke-width="5" stroke-linejoin="round" transform="translate(265,310) scale(0.955) translate(-265,-310)"/>
+<!-- visor with neon shades -->
+<rect x="130" y="250" width="270" height="126" rx="22" fill="#0b0a16" stroke="#111" stroke-width="8"/>
+<path d="M120,284 L410,276 L404,330 Q340,350 280,330 L250,330 Q190,350 126,334 Z" fill="#ff2bd6" fill-opacity="0.3" stroke="#18f0ff" stroke-width="6" stroke-linejoin="round"/>
+<ellipse cx="222" cy="312" rx="17" ry="28" fill="#7cfc00"/>
+<ellipse cx="308" cy="312" rx="17" ry="28" fill="#7cfc00"/>
+<path d="M150,292 L230,290" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-opacity="0.8"/>
+<path d="M180,356 L350,356" stroke="#18f0ff" stroke-width="6" stroke-linecap="round" stroke-dasharray="18 10"/>
+<!-- earpiece and antenna -->
+<rect x="404" y="270" width="30" height="62" rx="8" fill="#2c2550" stroke="#111" stroke-width="6"/>
+<path d="M426,272 L452,206" stroke="#111" stroke-width="6" stroke-linecap="round"/>
+<circle cx="454" cy="200" r="11" fill="#ff2bd6" stroke="#111" stroke-width="5"/>
+<g transform="translate(80,400) scale(-1,1)"><path d="M-38,40 C-60,10 -52,-30 -30,-40 C-26,-70 -6,-78 6,-60 C14,-82 38,-80 40,-56 C58,-66 74,-50 62,-28 C70,-10 62,22 40,40 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-2,-30 C2,-10 4,8 0,24 M24,-30 C30,-10 30,8 26,22" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/><circle cx="-2" cy="-34" r="5" fill="#9a9a9a"/><circle cx="24" cy="-34" r="5" fill="#9a9a9a"/><circle cx="46" cy="-24" r="5" fill="#9a9a9a"/><path d="M-36,40 L40,40 L36,62 L-30,62 Z" fill="#2c2550" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-30,51 L36,51" stroke="#18f0ff" stroke-width="5"/></g>
+<g transform="translate(452,400) scale(1,1)"><path d="M-38,40 C-60,10 -52,-30 -30,-40 C-26,-70 -6,-78 6,-60 C14,-82 38,-80 40,-56 C58,-66 74,-50 62,-28 C70,-10 62,22 40,40 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-2,-30 C2,-10 4,8 0,24 M24,-30 C30,-10 30,8 26,22" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/><circle cx="-2" cy="-34" r="5" fill="#9a9a9a"/><circle cx="24" cy="-34" r="5" fill="#9a9a9a"/><circle cx="46" cy="-24" r="5" fill="#9a9a9a"/><path d="M-36,40 L40,40 L36,62 L-30,62 Z" fill="#2c2550" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-30,51 L36,51" stroke="#ff2bd6" stroke-width="5"/></g>
+</svg>

@@ -21,7 +21,7 @@ export class ChannelRuntime {
    * @param {import('better-sqlite3').Database} [options.db]
    * @param {() => number} [options.clock=() => Date.now()]
    * @param {() => number} [options.rng=Math.random]
-   * @param {string} [options.botName='CB']
+   * @param {string} [options.botName='Bones']
    * @param {number} [options.pacerIntervalMs=1800]
    * @param {number} [options.tickIntervalMs=1000] How often timers are checked; 0 disables the ticker
    * @param {Narrator} [options.narrator] AI narrator for key moments (defaults to one built from AI_URL)
@@ -31,7 +31,7 @@ export class ChannelRuntime {
     this.db = options.db || null;
     this.clock = options.clock || (() => Date.now());
     this.rng = options.rng || Math.random;
-    this.botName = options.botName || process.env.BOT_NAME || 'CB';
+    this.botName = options.botName || process.env.BOT_NAME || 'Bones';
     this.pacerIntervalMs = options.pacerIntervalMs ?? 1800;
 
     this.bus = new EventEmitter();
