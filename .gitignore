@@ -1,0 +1,15 @@
+node_modules/
+*.log
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-journal
+*.db
+.DS_Store
+Thumbs.db
+.vscode/
+.local/
+
+# Streamer notes for the AI (copy soul_sample.md to start)
+soul.md

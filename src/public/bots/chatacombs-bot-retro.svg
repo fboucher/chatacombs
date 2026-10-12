@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 530 520" width="530" height="520">
+<defs><clipPath id="b"><polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470"/></clipPath></defs>
+<!-- antenna -->
+<path d="M265,184 L265,104" stroke="#3a3326" stroke-width="9" stroke-linecap="round"/>
+<circle cx="265" cy="96" r="18" fill="#e74c3c" stroke="#3a3326" stroke-width="7"/>
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="#ddd3b6"/>
+<!-- rainbow stripe and vents on the beige case -->
+<g clip-path="url(#b)">
+  <g transform="rotate(-12 265 420)">
+    <rect x="20" y="392" width="500" height="11" fill="#e74c3c"/><rect x="20" y="403" width="500" height="11" fill="#f39c12"/>
+    <rect x="20" y="414" width="500" height="11" fill="#f1c40f"/><rect x="20" y="425" width="500" height="11" fill="#2ecc71"/>
+    <rect x="20" y="436" width="500" height="11" fill="#3498db"/>
+  </g>
+  <g stroke="#a99d7e" stroke-width="6" stroke-linecap="round"><path d="M96,290 L96,370"/><path d="M114,290 L114,370"/><path d="M416,290 L416,370"/><path d="M434,290 L434,370"/></g>
+</g>
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="none" stroke="#3a3326" stroke-width="12" stroke-linejoin="round"/>
+<!-- CRT screen with pixel face -->
+<rect x="140" y="226" width="250" height="150" rx="26" fill="#b8ad8f" stroke="#3a3326" stroke-width="8"/>
+<rect x="160" y="242" width="210" height="118" rx="18" fill="#0d1f0d" stroke="#3a3326" stroke-width="6"/>
+<g fill="#7cfc00">
+  <rect x="200" y="272" width="12" height="12"/><rect x="212" y="272" width="12" height="12"/>
+  <rect x="200" y="284" width="12" height="12"/><rect x="212" y="284" width="12" height="12"/>
+  <rect x="200" y="296" width="12" height="12"/><rect x="212" y="296" width="12" height="12"/>
+  <rect x="306" y="272" width="12" height="12"/><rect x="318" y="272" width="12" height="12"/>
+  <rect x="306" y="284" width="12" height="12"/><rect x="318" y="284" width="12" height="12"/>
+  <rect x="306" y="296" width="12" height="12"/><rect x="318" y="296" width="12" height="12"/>
+  <rect x="230" y="324" width="12" height="12"/><rect x="242" y="330" width="12" height="12"/><rect x="254" y="330" width="12" height="12"/>
+  <rect x="266" y="330" width="12" height="12"/><rect x="278" y="330" width="12" height="12"/><rect x="290" y="324" width="12" height="12"/>
+</g>
+<g stroke="#7cfc00" stroke-opacity="0.12" stroke-width="3"><path d="M164,256 L366,256 M164,268 L366,268 M164,280 L366,280 M164,292 L366,292 M164,304 L366,304 M164,316 L366,316 M164,328 L366,328 M164,340 L366,340"/></g>
+<path d="M178,256 Q182,248 196,248" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="5" stroke-linecap="round"/>
+<!-- floppy slot and power light -->
+<rect x="196" y="392" width="138" height="14" rx="5" fill="#3a3326"/>
+<circle cx="360" cy="399" r="8" fill="#2ecc71" stroke="#3a3326" stroke-width="4"/>
+<g transform="translate(80,400) scale(-1,1)"><path d="M-38,40 C-60,10 -52,-30 -30,-40 C-26,-70 -6,-78 6,-60 C14,-82 38,-80 40,-56 C58,-66 74,-50 62,-28 C70,-10 62,22 40,40 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-2,-30 C2,-10 4,8 0,24 M24,-30 C30,-10 30,8 26,22" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/><circle cx="-2" cy="-34" r="5" fill="#9a9a9a"/><circle cx="24" cy="-34" r="5" fill="#9a9a9a"/><circle cx="46" cy="-24" r="5" fill="#9a9a9a"/><path d="M-36,40 L40,40 L36,62 L-30,62 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/></g>
+<g transform="translate(452,400) scale(1,1)"><path d="M-38,40 C-60,10 -52,-30 -30,-40 C-26,-70 -6,-78 6,-60 C14,-82 38,-80 40,-56 C58,-66 74,-50 62,-28 C70,-10 62,22 40,40 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-2,-30 C2,-10 4,8 0,24 M24,-30 C30,-10 30,8 26,22" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/><circle cx="-2" cy="-34" r="5" fill="#9a9a9a"/><circle cx="24" cy="-34" r="5" fill="#9a9a9a"/><circle cx="46" cy="-24" r="5" fill="#9a9a9a"/><path d="M-36,40 L40,40 L36,62 L-30,62 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/></g>
+</svg>

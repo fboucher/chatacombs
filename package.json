@@ -1,0 +1,27 @@
+{
+  "name": "chatacombs",
+  "version": "0.1.0",
+  "description": "Standalone chat-driven dungeon crawler for Twitch streams",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "simulate": "node tools/simulator.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "twitch",
+    "dungeon-crawler",
+    "chatbot",
+    "rpg"
+  ],
+  "author": "fboucher",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "express": "^5.3.0"
+  }
+}

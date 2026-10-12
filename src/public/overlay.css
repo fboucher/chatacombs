@@ -1,0 +1,759 @@
+/* Chatacombs OBS overlay: 16-bit retro pixel RPG look. No external fonts or images. */
+
+:root {
+  --scale: 1;
+}
+
+.overlay {
+  /* Retro (default) palette */
+  --panel: #1a1c2c;
+  --panel-2: #29366f;
+  --border: #f4f4f4;
+  --border-dark: #000000;
+  --text: #f4f4f4;
+  --muted: #94b0c2;
+  --accent: #ffcd75;
+  --good: #38b764;
+  --good-hi: #a7f070;
+  --bad: #b13e53;
+  --bad-hi: #ef7d57;
+  --cool: #41a6f6;
+  --font: "Courier New", Courier, ui-monospace, monospace;
+  --radius: 0px;
+}
+
+.overlay.theme-dark {
+  --panel: rgba(16, 18, 26, 0.82);
+  --panel-2: rgba(40, 44, 60, 0.82);
+  --border: rgba(255, 255, 255, 0.18);
+  --border-dark: rgba(0, 0, 0, 0.4);
+  --text: #eef0f6;
+  --muted: #9aa3b8;
+  --accent: #c9b6ff;
+  --good: #3ecf8e;
+  --good-hi: #8ef0c0;
+  --bad: #e5484d;
+  --bad-hi: #ff8a8f;
+  --cool: #7aa2ff;
+  --font: system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+  --radius: 10px;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.overlay {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font);
+  font-weight: bold;
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+}
+
+/* ---------- Ribbon ---------- */
+
+.ribbon {
+  position: absolute;
+  left: 40px;
+  right: 488px; /* 480px free plus the 8px pixel border */
+  bottom: 24px;
+  height: 132px;
+  display: grid;
+  grid-template-columns: 30fr 40fr 30fr 150px;
+  gap: 12px;
+  transform: scale(var(--scale));
+  transform-origin: bottom right;
+  transition: opacity 400ms steps(4);
+}
+
+/* The last quarter of the width (480px) stays free for the webcam; the bot sits at the far end.
+   Scaling grows away from the webcam corner. */
+.cam-right .ribbon {
+  grid-template-columns: 150px 30fr 40fr 30fr;
+}
+
+.cam-right .bot-card { order: -1; }
+
+.cam-left .ribbon {
+  left: 488px;
+  right: 40px;
+  transform-origin: bottom left;
+}
+
+.bot-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.bot-img {
+  display: block;
+  max-width: 150px;
+  max-height: 100px;
+  object-fit: contain;
+}
+
+.bot-img:not([src]) { display: none; }
+
+.bot-name {
+  max-width: 150px;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent);
+  font-size: 20px;
+  text-shadow: 2px 2px 0 var(--border-dark), -2px -2px 0 var(--border-dark), 2px -2px 0 var(--border-dark), -2px 2px 0 var(--border-dark);
+}
+
+.ribbon-section {
+  position: relative;
+  box-sizing: border-box;
+  padding: 14px 18px;
+  background: var(--panel);
+  border-radius: var(--radius);
+  /* Stepped pixel border */
+  box-shadow:
+    0 -4px 0 0 var(--border),
+    0 4px 0 0 var(--border),
+    -4px 0 0 0 var(--border),
+    4px 0 0 0 var(--border),
+    0 -8px 0 0 var(--border-dark),
+    0 8px 0 0 var(--border-dark),
+    -8px 0 0 0 var(--border-dark),
+    8px 0 0 0 var(--border-dark);
+  overflow: hidden;
+}
+
+.theme-dark .ribbon-section {
+  box-shadow: 0 0 0 1px var(--border), 0 8px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.ribbon.is-idle .ribbon-section {
+  opacity: 0.55;
+}
+
+/* Sections ride the ribbon's grid, so sliding them down leaves the bot card in place */
+.ribbon-section {
+  transition: transform 700ms cubic-bezier(0.5, 0, 0.75, 0), opacity 700ms steps(4);
+}
+
+.ribbon.is-stowed .ribbon-section {
+  transform: translateY(calc(100% + 64px));
+  opacity: 0;
+  transition: transform 700ms cubic-bezier(0.25, 1, 0.5, 1), opacity 700ms steps(4);
+}
+
+.label {
+  color: var(--muted);
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-right: 6px;
+}
+
+/* Left: progress */
+.room-line {
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
+  font-size: 30px;
+}
+
+.room-number { color: var(--accent); }
+.room-sep { color: var(--muted); margin: 0 2px; }
+.room-total { color: var(--text); }
+
+.room-name {
+  margin-left: 14px;
+  font-size: 20px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--panel);
+  background: var(--accent);
+  border-radius: var(--radius);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.theme-badge.is-empty {
+  background: var(--panel-2);
+  color: var(--muted);
+}
+
+.progress-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.progress-dots .dot {
+  width: 14px;
+  height: 14px;
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 2px var(--border-dark);
+}
+
+.theme-dark .progress-dots .dot { border-radius: 50%; }
+
+.progress-dots .dot.is-done { background: var(--good); }
+.progress-dots .dot.is-current {
+  background: var(--accent);
+  animation: dot-pulse 1s steps(2) infinite;
+}
+.progress-dots .dot.is-boss { box-shadow: inset 0 0 0 2px var(--bad); }
+
+@keyframes dot-pulse {
+  50% { opacity: 0.4; }
+}
+
+/* Center: encounter */
+.encounter {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.enc-portrait {
+  position: relative;
+  flex: 0 0 96px;
+  width: 96px;
+  height: 96px;
+  background: var(--panel-2);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: none;
+}
+
+.encounter.has-monster .enc-portrait { display: block; }
+
+.enc-sprite {
+  position: absolute;
+  /* 6px pixels: 12 * 6 = 72px boss sprite centered in 96px */
+  left: 12px;
+  top: 12px;
+  width: 6px;
+  height: 6px;
+  margin-left: -6px;
+  margin-top: -6px;
+  background: transparent;
+  animation: sprite-bob 1.2s steps(2) infinite;
+}
+
+.encounter:not(.is-boss) .enc-sprite {
+  /* 5px pixels: 12 * 5 = 60px sprite centered in 96px */
+  left: 18px;
+  top: 18px;
+  margin-left: -5px;
+  margin-top: -5px;
+  width: 5px;
+  height: 5px;
+}
+
+.encounter.is-defeated .enc-sprite {
+  animation: none;
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+@keyframes sprite-bob {
+  50% { transform: translateY(-3px); }
+}
+
+.enc-flash {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.enc-flash.is-hit { background: var(--border); animation: flash 450ms steps(3); }
+.enc-flash.is-crit { background: var(--accent); animation: flash 450ms steps(3); }
+.enc-flash.is-miss { background: var(--cool); animation: flash 450ms steps(3); }
+
+@keyframes flash {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+.enc-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.enc-name {
+  font-size: 26px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.encounter.is-boss .enc-name { color: var(--bad-hi); }
+
+.hp-bar {
+  position: relative;
+  height: 24px;
+  margin-top: 8px;
+  background: var(--border-dark);
+  box-shadow: inset 0 0 0 3px var(--border-dark);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: none;
+}
+
+.encounter.has-monster .hp-bar { display: block; }
+
+.hp-fill,
+.hp-trail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+
+.hp-fill {
+  background: linear-gradient(var(--good-hi) 0 30%, var(--good) 30% 100%);
+  transition: width 500ms steps(10);
+}
+
+.hp-fill.is-low {
+  background: linear-gradient(var(--bad-hi) 0 30%, var(--bad) 30% 100%);
+}
+
+.hp-trail {
+  background: var(--accent);
+  transition: width 900ms 350ms steps(6);
+}
+
+.hp-text {
+  position: absolute;
+  right: 8px;
+  top: 0;
+  line-height: 24px;
+  font-size: 18px;
+  color: var(--text);
+  text-shadow: 2px 2px 0 var(--border-dark);
+}
+
+.enc-status {
+  margin-top: 6px;
+  font-size: 18px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.encounter:not(.has-monster) .enc-status {
+  margin: 0;
+  font-size: 24px;
+  color: var(--text);
+  text-align: center;
+}
+
+/* Right: party + timer */
+.party-line {
+  display: flex;
+  gap: 18px;
+  font-size: 22px;
+  white-space: nowrap;
+}
+
+.party-badge #party-count { color: var(--accent); }
+
+.ko-indicator { color: var(--muted); }
+.ko-indicator.has-ko { color: var(--bad-hi); animation: ko-blink 1s steps(2) 3; }
+
+@keyframes ko-blink {
+  50% { opacity: 0.3; }
+}
+
+.icon-sword,
+.icon-skull {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin: 0 22px 6px 0;
+  vertical-align: middle;
+}
+
+/* 6x6 pixel icons drawn with box-shadow */
+.icon-sword {
+  box-shadow:
+    18px 0 var(--muted), 15px 3px var(--muted), 12px 6px var(--muted), 9px 9px var(--muted),
+    3px 9px var(--accent), 6px 12px var(--accent), 0 15px var(--accent);
+}
+
+.icon-skull {
+  box-shadow:
+    3px 0 currentColor, 6px 0 currentColor, 9px 0 currentColor, 12px 0 currentColor,
+    0 3px currentColor, 6px 3px currentColor, 15px 3px currentColor, 9px 3px currentColor,
+    0 6px currentColor, 9px 6px currentColor, 6px 6px currentColor, 15px 6px currentColor,
+    3px 9px currentColor, 6px 9px currentColor, 9px 9px currentColor, 12px 9px currentColor,
+    3px 12px currentColor, 9px 12px currentColor;
+}
+
+.timer {
+  margin-top: 10px;
+  visibility: hidden;
+}
+
+.timer.is-active { visibility: visible; }
+
+.timer-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 20px;
+}
+
+.timer-label {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.timer-text { color: var(--accent); }
+.timer.is-urgent .timer-text { color: var(--bad-hi); animation: ko-blink 1s steps(2) infinite; }
+
+.timer-bar {
+  height: 10px;
+  margin-top: 4px;
+  background: var(--border-dark);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.timer-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--cool);
+  transition: width 250ms linear;
+}
+
+.timer.is-urgent .timer-fill { background: var(--bad); }
+
+.timer-tallies {
+  margin-top: 4px;
+  font-size: 16px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Toasts ---------- */
+
+.toasts {
+  position: absolute;
+  right: 488px;
+  bottom: 190px;
+  width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 10;
+  transform: scale(var(--scale));
+  transform-origin: bottom right;
+}
+
+/* Toasts sit above the ribbon's webcam-side end, never over the webcam */
+.cam-left .toasts {
+  right: auto;
+  left: 488px;
+  align-items: flex-start;
+  transform-origin: bottom left;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  padding: 10px 16px;
+  font-size: 22px;
+  background: var(--panel);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 4px var(--border), 0 0 0 8px var(--border-dark);
+  animation: toast-life 4000ms steps(40) forwards;
+}
+
+.toast-icon {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  font-size: 18px;
+  color: var(--panel);
+  background: var(--muted);
+}
+
+.toast-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toast-heal .toast-icon { background: var(--good); }
+.toast-dice .toast-icon { background: var(--cool); }
+.toast-loot .toast-icon { background: var(--accent); }
+.toast-loot { box-shadow: 0 0 0 4px var(--accent), 0 0 0 8px var(--border-dark), 0 0 18px var(--accent); }
+.toast-ko .toast-icon { background: var(--bad); color: var(--text); }
+
+@keyframes toast-life {
+  0% { opacity: 0; transform: translate(40px, 0); }
+  6% { opacity: 1; transform: translate(0, 0); }
+  88% { opacity: 1; transform: translate(0, 0); }
+  100% { opacity: 0; transform: translate(0, -16px); }
+}
+
+/* ---------- Dice ---------- */
+
+/* Band just above the ribbon, same width, so dice land on top of it and never on the webcam */
+.dice-tray {
+  --die-size: 128px;
+  position: absolute;
+  left: 40px;
+  right: 488px;
+  bottom: 160px;
+  height: var(--die-size);
+  z-index: 9; /* under the toasts, so roll text stays readable */
+  pointer-events: none;
+  transform: scale(var(--scale));
+  transform-origin: bottom right;
+}
+
+.cam-left .dice-tray {
+  left: 488px;
+  right: 40px;
+  transform-origin: bottom left;
+}
+
+.die {
+  position: absolute;
+  bottom: 0;
+  left: calc((100% - var(--die-size)) * var(--x, 0.5));
+  width: var(--die-size);
+  height: var(--die-size);
+  animation: die-roll 4000ms steps(6) forwards;
+}
+
+.die-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: die-tumble 4000ms steps(6) forwards;
+}
+
+.die-body { fill: var(--panel); stroke: var(--border); stroke-width: 3; stroke-linejoin: round; }
+.die-face { fill: var(--panel-2); stroke: var(--border); stroke-width: 2; stroke-linejoin: round; }
+.die-edge { fill: none; stroke: var(--border); stroke-width: 2; opacity: 0.55; }
+
+.die-value {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 39%;
+  text-align: center;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--text);
+  text-shadow: 3px 3px 0 var(--border-dark);
+  opacity: 0;
+  animation: die-reveal 4000ms steps(6) forwards;
+}
+
+.die.is-hit .die-body { stroke: var(--good); }
+.die.is-hit .die-value { color: var(--good-hi); }
+.die.is-miss .die-body { stroke: var(--cool); }
+.die.is-miss .die-value { color: var(--muted); }
+.die.is-crit .die-body { stroke: var(--accent); }
+.die.is-crit .die-face { fill: var(--accent); }
+.die.is-crit .die-value { color: var(--panel); text-shadow: none; }
+.die.is-crit .die-shape { filter: drop-shadow(0 0 14px var(--accent)); }
+
+/* Drops in from above, bounces once on the ribbon, rests so the number can be read, then fades.
+   The drop and bounce take ~1.2s of the 4s; the settled die stays up until 3.6s */
+@keyframes die-roll {
+  0% { opacity: 0; transform: translateY(-240px); }
+  4% { opacity: 1; }
+  22% { transform: translateY(0); }
+  26% { transform: translateY(-28px); }
+  31% { transform: translateY(0); }
+  90% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+/* Spins while falling and settles face-up as it lands */
+@keyframes die-tumble {
+  0% { transform: rotate(-540deg); }
+  22% { transform: rotate(-30deg); }
+  31%, 100% { transform: rotate(0deg); }
+}
+
+/* The engine's number only shows once the die has settled */
+@keyframes die-reveal {
+  0%, 29% { opacity: 0; }
+  32%, 90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Dark theme moves smoothly instead of in pixel steps */
+.theme-dark .die,
+.theme-dark .die-shape,
+.theme-dark .die-value { animation-timing-function: ease-out; }
+
+/* ---------- Full-screen takeovers ---------- */
+
+.takeover {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.takeover.is-active {
+  display: flex;
+  animation: takeover-in 500ms steps(5);
+}
+
+@keyframes takeover-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.takeover-vignette {
+  position: absolute;
+  inset: 0;
+}
+
+.takeover-fx {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.takeover-banner {
+  position: relative;
+  padding: 28px 64px;
+  text-align: center;
+  background: var(--panel);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 6px var(--border), 0 0 0 12px var(--border-dark);
+}
+
+.takeover-title {
+  font-size: 72px;
+  letter-spacing: 4px;
+  text-shadow: 4px 4px 0 var(--border-dark);
+}
+
+.takeover-sub {
+  margin-top: 12px;
+  font-size: 32px;
+  color: var(--muted);
+}
+
+.takeover-stats {
+  margin-top: 14px;
+  font-size: 26px;
+  color: var(--accent);
+}
+
+/* boss_appears: dim + thunder flash */
+.takeover-boss_appears .takeover-vignette {
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.85) 100%);
+  animation: thunder 1.6s steps(1) 2;
+}
+
+.takeover-boss_appears .takeover-title {
+  color: var(--bad-hi);
+  animation: ko-blink 0.6s steps(2) 5;
+}
+
+@keyframes thunder {
+  0%, 100% { background-color: transparent; }
+  8% { background-color: rgba(255, 255, 255, 0.75); }
+  12% { background-color: transparent; }
+  18% { background-color: rgba(255, 255, 255, 0.5); }
+  22% { background-color: transparent; }
+}
+
+/* party_wiped: crimson vignette, slow fade-in */
+.takeover-party_wiped .takeover-vignette {
+  background: radial-gradient(ellipse at center, rgba(120, 0, 20, 0.15) 0%, rgba(140, 0, 20, 0.85) 100%);
+}
+
+.takeover-party_wiped .takeover-banner {
+  animation: takeover-in 1.5s steps(10);
+}
+
+.takeover-party_wiped .takeover-title { color: var(--bad-hi); }
+
+/* dungeon_cleared: fanfare + coin confetti */
+.takeover-dungeon_cleared .takeover-vignette {
+  background: radial-gradient(ellipse at center, rgba(255, 205, 117, 0.25) 0%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+.takeover-dungeon_cleared .takeover-title {
+  color: var(--accent);
+  animation: fanfare 0.8s steps(4) 3;
+}
+
+@keyframes fanfare {
+  50% { transform: scale(1.06); }
+}
+
+.coin {
+  position: absolute;
+  top: -24px;
+  width: 18px;
+  height: 18px;
+  background: var(--accent);
+  box-shadow: inset -4px -4px 0 #b86f50, inset 4px 4px 0 #fff3c4;
+  animation: coin-fall 2.4s steps(24) infinite;
+}
+
+.theme-dark .coin { border-radius: 50%; }
+
+@keyframes coin-fall {
+  from { transform: translateY(0); }
+  to { transform: translateY(1120px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay *, .overlay *::before, .overlay *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

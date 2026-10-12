@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 530 520" width="530" height="520">
+<defs><clipPath id="b"><polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470"/></clipPath></defs>
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="#f3ecdc"/>
+<!-- striped shirt -->
+<g clip-path="url(#b)" fill="#c0392b">
+  <rect x="40" y="392" width="460" height="22"/><rect x="40" y="436" width="460" height="22"/>
+  <rect x="40" y="348" width="460" height="22"/>
+</g>
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="none" stroke="#111" stroke-width="12" stroke-linejoin="round"/>
+<!-- visor with an eyepatch -->
+<rect x="128" y="262" width="274" height="94" rx="16" fill="#353845" stroke="#111" stroke-width="8"/>
+<ellipse cx="222" cy="309" rx="17" ry="28" fill="#7cfc00"/>
+<path d="M128,250 L402,346" stroke="#111" stroke-width="9" stroke-linecap="round"/>
+<path d="M276,286 Q308,272 340,286 L336,330 Q308,346 280,330 Z" fill="#111"/>
+<!-- tricorn hat -->
+<path d="M96,250 Q120,150 265,130 Q410,150 434,250 Q350,216 265,226 Q180,216 96,250 Z" fill="#23202a" stroke="#111" stroke-width="8" stroke-linejoin="round"/>
+<path d="M104,244 Q180,210 265,220 Q350,210 426,244" fill="none" stroke="#e8b931" stroke-width="7" stroke-linecap="round"/>
+<path d="M150,186 Q265,90 380,186" fill="none" stroke="#e8b931" stroke-width="5" stroke-linecap="round"/>
+<!-- skull and crossbones -->
+<g stroke="#f3ecdc" stroke-width="9" stroke-linecap="round"><path d="M240,192 L290,222"/><path d="M290,192 L240,222"/></g>
+<path d="M248,182 C248,160 282,160 282,182 L282,194 L248,194 Z" fill="#f3ecdc"/>
+<circle cx="258" cy="180" r="4.5" fill="#23202a"/><circle cx="272" cy="180" r="4.5" fill="#23202a"/>
+<!-- gold earring -->
+<circle cx="112" cy="300" r="13" fill="none" stroke="#e8b931" stroke-width="7"/>
+<g transform="translate(80,400) scale(-1,1)"><path d="M-38,40 C-60,10 -52,-30 -30,-40 C-26,-70 -6,-78 6,-60 C14,-82 38,-80 40,-56 C58,-66 74,-50 62,-28 C70,-10 62,22 40,40 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-2,-30 C2,-10 4,8 0,24 M24,-30 C30,-10 30,8 26,22" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/><circle cx="-2" cy="-34" r="5" fill="#9a9a9a"/><circle cx="24" cy="-34" r="5" fill="#9a9a9a"/><circle cx="46" cy="-24" r="5" fill="#9a9a9a"/><path d="M-36,40 L40,40 L36,62 L-30,62 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/></g>
+<!-- hook hand -->
+<g transform="translate(452,400)">
+  <path d="M6,-6 C6,-60 60,-66 62,-26 C64,-4 44,4 34,-8" fill="none" stroke="#111" stroke-width="20" stroke-linecap="round"/>
+  <path d="M6,-6 C6,-60 60,-66 62,-26 C64,-4 44,4 34,-8" fill="none" stroke="#c9ced6" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-30,6 Q4,-8 40,6 L36,40 L-26,40 Z" fill="#6b4423" stroke="#111" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M-36,40 L40,40 L36,62 L-30,62 Z" fill="#c0392b" stroke="#111" stroke-width="7" stroke-linejoin="round"/>
+</g>
+</svg>

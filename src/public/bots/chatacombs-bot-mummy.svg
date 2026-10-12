@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 530 520" width="530" height="520">
+<defs><clipPath id="b"><polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470"/></clipPath></defs>
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="#e9ddc1"/>
+<g clip-path="url(#b)"><rect x="20" y="200" width="500" height="40" fill="#e9ddc1" stroke="#c7b48b" stroke-width="4" transform="rotate(-8 265 220)"/><rect x="20" y="236" width="500" height="40" fill="#f2e8d0" stroke="#c7b48b" stroke-width="4" transform="rotate(6 265 256)"/><rect x="20" y="270" width="500" height="40" fill="#e9ddc1" stroke="#c7b48b" stroke-width="4" transform="rotate(-5 265 290)"/><rect x="20" y="392" width="500" height="40" fill="#f2e8d0" stroke="#c7b48b" stroke-width="4" transform="rotate(7 265 412)"/><rect x="20" y="426" width="500" height="40" fill="#e9ddc1" stroke="#c7b48b" stroke-width="4" transform="rotate(-6 265 446)"/><rect x="20" y="458" width="500" height="40" fill="#f2e8d0" stroke="#c7b48b" stroke-width="4" transform="rotate(4 265 478)"/>
+  <path d="M60,330 L140,300 M390,300 L470,330" stroke="#c7b48b" stroke-width="5"/>
+</g>
+<!-- visor peeking through a gap in the wraps -->
+<rect x="128" y="302" width="274" height="84" rx="16" fill="#353845" stroke="#111" stroke-width="8"/>
+<ellipse cx="222" cy="344" rx="17" ry="28" fill="#7cfc00"/>
+<ellipse cx="308" cy="344" rx="17" ry="28" fill="#7cfc00"/>
+<path d="M118,318 L412,296" stroke="#e9ddc1" stroke-width="22" stroke-linecap="round"/>
+<path d="M118,318 L412,296" stroke="#c7b48b" stroke-width="3" stroke-dasharray="14 10"/>
+<polygon points="60,470 70,262 118,250 132,206 214,168 262,190 340,146 410,164 420,232 462,252 470,470" fill="none" stroke="#3b2f1f" stroke-width="12" stroke-linejoin="round"/>
+<!-- loose bandage tail -->
+<path d="M404,170 C440,140 470,150 488,118 C494,140 470,172 432,186 Z" fill="#e9ddc1" stroke="#3b2f1f" stroke-width="6" stroke-linejoin="round"/>
+<g transform="translate(80,400) scale(-1,1)"><path d="M-38,40 C-60,10 -52,-30 -30,-40 C-26,-70 -6,-78 6,-60 C14,-82 38,-80 40,-56 C58,-66 74,-50 62,-28 C70,-10 62,22 40,40 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-2,-30 C2,-10 4,8 0,24 M24,-30 C30,-10 30,8 26,22" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/><path d="M-48,8 L64,-14 M-44,26 L62,4" stroke="#c7b48b" stroke-width="7" stroke-linecap="round"/><path d="M-36,40 L40,40 L36,62 L-30,62 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/></g>
+<g transform="translate(452,400) scale(1,1)"><path d="M-38,40 C-60,10 -52,-30 -30,-40 C-26,-70 -6,-78 6,-60 C14,-82 38,-80 40,-56 C58,-66 74,-50 62,-28 C70,-10 62,22 40,40 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/><path d="M-2,-30 C2,-10 4,8 0,24 M24,-30 C30,-10 30,8 26,22" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/><path d="M-48,8 L64,-14 M-44,26 L62,4" stroke="#c7b48b" stroke-width="7" stroke-linecap="round"/><path d="M-36,40 L40,40 L36,62 L-30,62 Z" fill="#eeeeee" stroke="#111" stroke-width="7" stroke-linejoin="round"/></g>
+</svg>
