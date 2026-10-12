@@ -1,4 +1,4 @@
-# 🏰 Chatacombs
+# Chatacombs
 
 **A dungeon crawler your stream chat plays on its own while you stream.**
 

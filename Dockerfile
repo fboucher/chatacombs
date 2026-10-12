@@ -14,7 +14,10 @@ RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force \
 
 # ---- Runtime stage: slim image with only the app and its node_modules ----
 FROM node:22-alpine
+# Set by the release workflow to the GitHub release tag; empty means "use package.json"
+ARG APP_VERSION=""
 ENV NODE_ENV=production \
+    APP_VERSION=${APP_VERSION} \
     PORT=8080 \
     DATABASE_PATH=/data/chatacombs.db
 WORKDIR /app
