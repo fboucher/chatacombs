@@ -525,7 +525,7 @@ html, body {
 
 /* Band just above the ribbon, same width, so dice land on top of it and never on the webcam */
 .dice-tray {
-  --die-size: 64px;
+  --die-size: 128px;
   position: absolute;
   left: 40px;
   right: 488px;
@@ -561,7 +561,7 @@ html, body {
   animation: die-tumble 2200ms steps(6) forwards;
 }
 
-.die-body { fill: var(--panel); stroke: var(--border); stroke-width: 4; stroke-linejoin: round; }
+.die-body { fill: var(--panel); stroke: var(--border); stroke-width: 3; stroke-linejoin: round; }
 .die-face { fill: var(--panel-2); stroke: var(--border); stroke-width: 2; stroke-linejoin: round; }
 .die-edge { fill: none; stroke: var(--border); stroke-width: 2; opacity: 0.55; }
 
@@ -569,12 +569,12 @@ html, body {
   position: absolute;
   left: 0;
   right: 0;
-  top: 42%;
+  top: 39%;
   text-align: center;
-  font-size: 20px;
+  font-size: 34px;
   line-height: 1;
   color: var(--text);
-  text-shadow: 2px 2px 0 var(--border-dark);
+  text-shadow: 3px 3px 0 var(--border-dark);
   opacity: 0;
   animation: die-reveal 2200ms steps(6) forwards;
 }
@@ -586,14 +586,14 @@ html, body {
 .die.is-crit .die-body { stroke: var(--accent); }
 .die.is-crit .die-face { fill: var(--accent); }
 .die.is-crit .die-value { color: var(--panel); text-shadow: none; }
-.die.is-crit .die-shape { filter: drop-shadow(0 0 8px var(--accent)); }
+.die.is-crit .die-shape { filter: drop-shadow(0 0 14px var(--accent)); }
 
 /* Drops in from above, bounces once on the ribbon, then fades */
 @keyframes die-roll {
-  0% { opacity: 0; transform: translateY(-160px); }
+  0% { opacity: 0; transform: translateY(-240px); }
   8% { opacity: 1; }
   40% { transform: translateY(0); }
-  48% { transform: translateY(-14px); }
+  48% { transform: translateY(-28px); }
   56% { transform: translateY(0); }
   85% { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(0); }

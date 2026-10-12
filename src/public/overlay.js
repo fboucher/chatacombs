@@ -557,8 +557,8 @@ export function createOverlay(options) {
   // Static outline of a d20 seen face-on; the number is a separate text node.
   const D20_SVG = '<svg class="die-shape" viewBox="0 0 64 64" aria-hidden="true">' +
     '<polygon class="die-body" points="32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5"/>' +
-    '<polygon class="die-face" points="32,14 49,43 15,43"/>' +
-    '<path class="die-edge" d="M32,3 L32,14 M57,17.5 L49,43 M57,46.5 L49,43 M32,61 L49,43 M32,61 L15,43 M7,46.5 L15,43 M7,17.5 L15,43 M7,17.5 L32,14 M57,17.5 L32,14"/>' +
+    '<polygon class="die-face" points="32,10 53,46 11,46"/>' +
+    '<path class="die-edge" d="M32,3 L32,10 M57,17.5 L53,46 M57,46.5 L53,46 M32,61 L53,46 M32,61 L11,46 M7,46.5 L11,46 M7,17.5 L11,46 M7,17.5 L32,10 M57,17.5 L32,10"/>' +
     '</svg>';
 
   function removeDie(entry) {
