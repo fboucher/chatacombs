@@ -521,6 +521,103 @@ html, body {
   100% { opacity: 0; transform: translate(0, -16px); }
 }
 
+/* ---------- Dice ---------- */
+
+/* Band just above the ribbon, same width, so dice land on top of it and never on the webcam */
+.dice-tray {
+  --die-size: 128px;
+  position: absolute;
+  left: 40px;
+  right: 488px;
+  bottom: 160px;
+  height: var(--die-size);
+  z-index: 9; /* under the toasts, so roll text stays readable */
+  pointer-events: none;
+  transform: scale(var(--scale));
+  transform-origin: bottom right;
+}
+
+.cam-left .dice-tray {
+  left: 488px;
+  right: 40px;
+  transform-origin: bottom left;
+}
+
+.die {
+  position: absolute;
+  bottom: 0;
+  left: calc((100% - var(--die-size)) * var(--x, 0.5));
+  width: var(--die-size);
+  height: var(--die-size);
+  animation: die-roll 2200ms steps(6) forwards;
+}
+
+.die-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: die-tumble 2200ms steps(6) forwards;
+}
+
+.die-body { fill: var(--panel); stroke: var(--border); stroke-width: 3; stroke-linejoin: round; }
+.die-face { fill: var(--panel-2); stroke: var(--border); stroke-width: 2; stroke-linejoin: round; }
+.die-edge { fill: none; stroke: var(--border); stroke-width: 2; opacity: 0.55; }
+
+.die-value {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 39%;
+  text-align: center;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--text);
+  text-shadow: 3px 3px 0 var(--border-dark);
+  opacity: 0;
+  animation: die-reveal 2200ms steps(6) forwards;
+}
+
+.die.is-hit .die-body { stroke: var(--good); }
+.die.is-hit .die-value { color: var(--good-hi); }
+.die.is-miss .die-body { stroke: var(--cool); }
+.die.is-miss .die-value { color: var(--muted); }
+.die.is-crit .die-body { stroke: var(--accent); }
+.die.is-crit .die-face { fill: var(--accent); }
+.die.is-crit .die-value { color: var(--panel); text-shadow: none; }
+.die.is-crit .die-shape { filter: drop-shadow(0 0 14px var(--accent)); }
+
+/* Drops in from above, bounces once on the ribbon, then fades */
+@keyframes die-roll {
+  0% { opacity: 0; transform: translateY(-240px); }
+  8% { opacity: 1; }
+  40% { transform: translateY(0); }
+  48% { transform: translateY(-28px); }
+  56% { transform: translateY(0); }
+  85% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+/* Spins while falling and settles face-up as it lands */
+@keyframes die-tumble {
+  0% { transform: rotate(-540deg); }
+  40% { transform: rotate(-30deg); }
+  56%, 100% { transform: rotate(0deg); }
+}
+
+/* The engine's number only shows once the die has settled */
+@keyframes die-reveal {
+  0%, 52% { opacity: 0; }
+  58%, 85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Dark theme moves smoothly instead of in pixel steps */
+.theme-dark .die,
+.theme-dark .die-shape,
+.theme-dark .die-value { animation-timing-function: ease-out; }
+
 /* ---------- Full-screen takeovers ---------- */
 
 .takeover {

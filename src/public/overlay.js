@@ -15,6 +15,8 @@ export const TAKEOVER_DURATIONS_MS = {
 export const MAX_QUEUED_TAKEOVERS = 3;
 export const TOAST_DURATION_MS = 4000;
 export const MAX_TOASTS = 5;
+export const DIE_DURATION_MS = 2200;
+export const MAX_DICE = 8;
 export const TIMER_TICK_MS = 250;
 export const RECONNECT_DELAY_MS = 3000;
 
@@ -238,6 +240,7 @@ export function spriteToBoxShadow(rows, palette, px) {
  * @param {() => number} [options.now]
  * @param {{ setTimeout: Function, clearTimeout: Function, setInterval: Function, clearInterval: Function }} [options.timers]
  * @param {{ playEvent: (type: string, data?: object) => boolean }} [options.audio]
+ * @param {() => number} [options.random] Picks where each die lands; only cosmetic
  */
 export function createOverlay(options) {
   const doc = options.document;
@@ -245,6 +248,7 @@ export function createOverlay(options) {
   const now = options.now || (() => Date.now());
   const timers = options.timers || globalThis;
   const audio = options.audio || { playEvent: () => false };
+  const random = options.random || Math.random;
 
   const el = id => doc.getElementById(id);
   const dom = {
@@ -277,6 +281,7 @@ export function createOverlay(options) {
     takeoverStats: el('takeover-stats'),
     takeoverFx: el('takeover-fx'),
     toasts: el('toasts'),
+    dice: el('dice'),
     botImg: el('bot-img')
   };
 
@@ -292,7 +297,8 @@ export function createOverlay(options) {
     flashHandle: null,
     takeover: null, // { type, handle }
     takeoverQueue: [],
-    toasts: [] // { node, handle }
+    toasts: [], // { node, handle }
+    dice: [] // { node, handle }
   };
 
   dom.root.classList.add(`theme-${config.theme}`);
@@ -547,6 +553,46 @@ export function createOverlay(options) {
     return node;
   }
 
+  // --- Dice: one d20 per throw, landing at a random spot along the ribbon ---
+  // Static outline of a d20 seen face-on; the number is a separate text node.
+  const D20_SVG = '<svg class="die-shape" viewBox="0 0 64 64" aria-hidden="true">' +
+    '<polygon class="die-body" points="32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5"/>' +
+    '<polygon class="die-face" points="32,10 53,46 11,46"/>' +
+    '<path class="die-edge" d="M32,3 L32,10 M57,17.5 L53,46 M57,46.5 L53,46 M32,61 L53,46 M32,61 L11,46 M7,46.5 L11,46 M7,17.5 L11,46 M7,17.5 L32,10 M57,17.5 L32,10"/>' +
+    '</svg>';
+
+  function removeDie(entry) {
+    timers.clearTimeout(entry.handle);
+    const index = state.dice.indexOf(entry);
+    if (index !== -1) state.dice.splice(index, 1);
+    if (entry.node.parentNode) entry.node.parentNode.removeChild(entry.node);
+  }
+
+  function rollDie(data) {
+    if (!dom.dice || !Number.isFinite(Number(data.roll))) return null;
+    if (state.dice.length >= MAX_DICE) removeDie(state.dice[0]);
+
+    const node = doc.createElement('div');
+    let outcome = '';
+    if (data.success === true) outcome = data.isCrit ? ' is-crit' : ' is-hit';
+    if (data.success === false) outcome = ' is-miss';
+    node.className = `die${outcome}`;
+    // Overlap is fine: each throw gets its own spot, so stacked rolls stay visible
+    const x = Math.min(1, Math.max(0, random()));
+    node.style.setProperty('--x', x.toFixed(3));
+    node.innerHTML = D20_SVG;
+    const value = doc.createElement('span');
+    value.className = 'die-value';
+    value.textContent = String(data.roll);
+    node.appendChild(value);
+    dom.dice.appendChild(node);
+
+    const entry = { node, handle: null };
+    entry.handle = timers.setTimeout(() => removeDie(entry), DIE_DURATION_MS);
+    state.dice.push(entry);
+    return node;
+  }
+
   function nameOf(data, field = 'user') {
     return data.displayName || data[field] || 'Someone';
   }
@@ -604,6 +650,7 @@ export function createOverlay(options) {
         if (data.success !== undefined && state.encounterKey) {
           flashCard(data.success ? (data.isCrit ? 'crit' : 'hit') : 'miss');
         }
+        rollDie(data);
         toastFor(type, data);
         break;
       case 'monster_defeated':
@@ -647,6 +694,7 @@ export function createOverlay(options) {
       if (state.flashHandle) timers.clearTimeout(state.flashHandle);
       if (state.takeover) timers.clearTimeout(state.takeover.handle);
       for (const entry of [...state.toasts]) removeToast(entry);
+      for (const entry of [...state.dice]) removeDie(entry);
       state.takeoverQueue = [];
     }
   };
