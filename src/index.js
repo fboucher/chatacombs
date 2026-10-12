@@ -3,6 +3,7 @@ import { createApp } from './server/app.js';
 import { createDatabase, runMigrations } from './db/database.js';
 import { AiClient } from './ai/client.js';
 import { describeSoul } from './ai/soul.js';
+import { VERSION } from './version.js';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -17,7 +18,7 @@ const app = createApp({ db });
 const server = http.createServer(app);
 
 server.listen(PORT, HOST, () => {
-  console.log(`🏰 Chatacombs service running on http://${HOST}:${PORT} (db: ${db.name})`);
+  console.log(`🏰 Chatacombs v${VERSION} running on http://${HOST}:${PORT} (db: ${db.name})`);
   console.log(`🤖 AI narration: ${new AiClient().describe()}`);
   console.log(`📜 Soul: ${describeSoul()}`);
 });
