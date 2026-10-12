@@ -10,3 +10,6 @@ node_modules/
 Thumbs.db
 .vscode/
 .local/
+
+# Streamer notes for the AI (copy soul_sample.md to start)
+soul.md

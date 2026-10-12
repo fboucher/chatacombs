@@ -146,6 +146,17 @@ html, body {
   opacity: 0.55;
 }
 
+/* Sections ride the ribbon's grid, so sliding them down leaves the bot card in place */
+.ribbon-section {
+  transition: transform 700ms cubic-bezier(0.5, 0, 0.75, 0), opacity 700ms steps(4);
+}
+
+.ribbon.is-stowed .ribbon-section {
+  transform: translateY(calc(100% + 64px));
+  opacity: 0;
+  transition: transform 700ms cubic-bezier(0.25, 1, 0.5, 1), opacity 700ms steps(4);
+}
+
 .label {
   color: var(--muted);
   font-size: 18px;

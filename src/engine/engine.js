@@ -5,6 +5,7 @@ import { PlayerRepository } from '../db/playerRepo.js';
 import { AdventureRepository } from '../db/adventureRepo.js';
 import { PartyRepository, INACTIVITY_WINDOW_MS } from '../db/partyRepo.js';
 import { ChatQnaHandler } from '../ai/chatQna.js';
+import { HelpCommand } from './help.js';
 
 /**
  * Chatacombs Core Engine.
@@ -19,12 +20,13 @@ export class Engine {
    * @param {number} [options.inactivityThresholdMs=120000]
    * @param {number} [options.nudgeIntervalMs=600000]
    * @param {string} [options.channel='default']
-   * @param {string} [options.botName='CB']
+   * @param {string} [options.botName='Bones']
    * @param {import('better-sqlite3').Database} [options.db]
    * @param {PlayerRepository} [options.playerRepo]
    * @param {AdventureRepository} [options.adventureRepo]
    * @param {PartyRepository} [options.partyRepo]
    * @param {ChatQnaHandler} [options.chatQna]
+   * @param {HelpCommand} [options.help] Answers "Bones help" style questions
    * @param {object} [options.initialState={}]
    */
   constructor(options = {}) {
@@ -34,7 +36,7 @@ export class Engine {
     this.inactivityThresholdMs = options.inactivityThresholdMs ?? 120000;
     this.nudgeIntervalMs = options.nudgeIntervalMs ?? 600000;
     this.channel = (options.channel || 'default').toLowerCase();
-    this.botName = options.botName || process.env.BOT_NAME || 'CB';
+    this.botName = options.botName || process.env.BOT_NAME || 'Bones';
 
     this.db = options.db || null;
     this.playerRepo = options.playerRepo || (this.db ? new PlayerRepository(this.db) : null);
@@ -44,6 +46,7 @@ export class Engine {
       botName: this.botName,
       clock: this.clock
     });
+    this.help = options.help || new HelpCommand({ botName: this.botName, clock: this.clock });
 
     this.adventure = this._createAdventure();
 
@@ -321,6 +324,9 @@ export class Engine {
           roll
         }));
       }
+    } else if (this.help && this.help.matches(trimmed)) {
+      // "Bones help", "Bones how do I play?": one answer per channel per cooldown, silent otherwise
+      events.push(...this.help.handle());
     } else if (this.chatQna && this.chatQna.isBotMentioned(trimmed)) {
       // Non-command message mentioning bot -> in-character Q&A / flavor action
       // Runs synchronously with fallback if AI client is offline/mocked

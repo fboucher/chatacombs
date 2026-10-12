@@ -16,7 +16,7 @@ A real game, captured from the service (the "legacy codebase" theme was suggeste
 <td width="50%"><img src="docs/images/chat-combat.png" alt="A fight round in chat"></td>
 </tr>
 <tr>
-<td><b>Chat picks the dungeon.</b> CB offers three themes, viewers vote or suggest their own with <code>!theme</code>.</td>
+<td><b>Chat picks the dungeon.</b> Bones offers three themes, viewers vote or suggest their own with <code>!theme</code>.</td>
 <td><b>Everyone fights together.</b> One action per player per round, then the dice decide.</td>
 </tr>
 </table>
@@ -40,7 +40,7 @@ The overlay follows along at the bottom of the stream, and the big moments take 
 3. **Fight.** Monsters fight in one-minute rounds: `!attack`, `!defend`, `!heal @friend`.
 4. **Beat the boss.** The last room holds the boss. XP and gold are shared by everyone present and carry over to the next stream.
 
-Chat can also ask the dungeon master anything with `@CB`. With an AI endpoint configured, those answers and the room descriptions are written by a model, while the game code alone decides HP, dice and loot.
+Chat can also ask the dungeon master anything with `@Bones`. With an AI endpoint configured, those answers and the room descriptions are written by a model, while the game code alone decides HP, dice and loot.
 
 ## Documentation
 
@@ -80,7 +80,8 @@ The [streamer guide](docs/streamers.md) walks through each step, including `dock
 | `OVERLAY_KEY` | Separate, watch-only key for **OBS**: goes in the overlay URL (`?key=`). Can't change the game. | `dev-overlay-key` |
 | `AI_URL` / `AI_KEY` / `AI_MODEL` | Optional OpenAI-compatible endpoint for narration. For a model on your computer, use `http://host.docker.internal:<port>/v1`, not `localhost` (inside the container, localhost is the container). | empty (built-in text) |
 | `AI_TIMEOUT_MS` | How long to wait for the AI before falling back to built-in text | `10000` |
-| `BOT_NAME` | The name viewers `@mention` | `CB` |
+| `BOT_NAME` | The name viewers `@mention` | `Bones` |
+| `HELP_URL` | Link posted when chat asks "Bones help" | the player guide on GitHub |
 | `PORT` | Listening port | `8080` |
 | `DATABASE_PATH` | SQLite file | `/data/chatacombs.db` in Docker |
 

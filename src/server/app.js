@@ -27,7 +27,7 @@ export function createApp(options = {}) {
   const rng = options.rng;
   const pacerIntervalMs = options.pacerIntervalMs;
   const engineOptions = options.engineOptions;
-  const botName = options.botName || process.env.BOT_NAME || 'CB';
+  const botName = options.botName || process.env.BOT_NAME || 'Bones';
 
   app.locals.runtimes = runtimes;
 
@@ -138,7 +138,7 @@ export function createApp(options = {}) {
   app.get('/overlay/:channel', requireOverlayKey(overlayKey), (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.send(renderOverlayPage({ botName }));
+    res.send(renderOverlayPage({ botName, bot: typeof req.query.bot === 'string' ? req.query.bot : '' }));
   });
 
   // Overlay State Snapshot: GET /overlay/:channel/state (Query key auth: ?key=<OVERLAY_KEY>)

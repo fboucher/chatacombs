@@ -17,8 +17,10 @@ services:
       API_KEY: ${API_KEY:-change-me-bot-secret}
       # Read-only key used in the OBS overlay URL (?key=...)
       OVERLAY_KEY: ${OVERLAY_KEY:-change-me-overlay-secret}
-      # Name viewers @mention to ask the narrator questions (e.g. "@CB what's in the chest?")
-      BOT_NAME: ${BOT_NAME:-CB}
+      # Name viewers @mention to ask the narrator questions (e.g. "@Bones what's in the chest?")
+      BOT_NAME: ${BOT_NAME:-Bones}
+      # Link the bot posts when chat asks "Bones help" (defaults to the players guide on GitHub)
+      HELP_URL: ${HELP_URL:-}
       # Port the service listens on inside the container
       PORT: ${PORT:-8080}
       # Optional OpenAI-compatible AI narrator; leave empty to use built-in template text.
