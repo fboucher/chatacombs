@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BRB Raid Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap">
+<style>
+/* Layout: a 1600x900 "stream screen" scaled to fit, with a fake Twitch chat + mockup controls beside it.
+   Single deliberate look: dark dungeon screen, as it would sit full-screen in OBS. */
+:root {
+  --bg: #0d0b14;
+  --stone: #1b1726;
+  --stone-2: #262036;
+  --line: #3a3150;
+  --text: #ece6d8;
+  --muted: #9a90ad;
+  --torch: #ffb347;
+  --hero: #5fc4ff;
+  --foe: #ff5a5f;
+  --heal: #6fe08a;
+  --gold: #ffd84a;
+  --display: "Silkscreen", "Courier New", monospace;
+  --body: "VT323", "Courier New", monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--bg); color: var(--text); margin: 0; }
+[hidden] { display: none !important; }
+body { font-family: var(--body); font-size: 20px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px; }
+.wrap { display: flex; gap: 16px; align-items: flex-start; max-width: 1500px; margin: 0 auto; }
+.screen-col { flex: 1 1 auto; min-width: 0; }
+.side { flex: 0 0 320px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 900px) { .wrap { flex-direction: column; } .side { flex: 1 1 auto; width: 100%; } }
+h1 { font-family: var(--display); font-size: 18px; margin: 0 0 8px; letter-spacing: .04em; color: var(--muted); font-weight: 400; }
+.note { color: var(--muted); font-size: 18px; margin: 8px 0 0; line-height: 1.2; }
+
+/* stage */
+.stage-box { position: relative; width: 100%; overflow: hidden; border: 2px solid var(--line); }
+.stage { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; background:
+  radial-gradient(ellipse at 20% 0%, rgba(255,179,71,.10), transparent 50%),
+  radial-gradient(ellipse at 85% 100%, rgba(255,90,95,.08), transparent 55%), var(--bg); overflow: hidden; }
+.topbar { position: absolute; left: 32px; right: 32px; top: 24px; height: 64px; display: flex; align-items: center; gap: 24px; }
+.logo { font-family: var(--display); font-weight: 700; font-size: 34px; color: var(--torch); letter-spacing: .06em; text-shadow: 3px 3px 0 #000; }
+.enc { font-family: var(--display); font-size: 20px; color: var(--muted); }
+.spacer { flex: 1; }
+.phase { font-family: var(--display); font-size: 22px; padding: 10px 18px; border: 3px solid currentColor; }
+.phase.heroes { color: var(--hero); } .phase.monsters { color: var(--foe); } .phase.join, .phase.idle, .phase.clear { color: var(--torch); }
+.back { font-family: var(--display); font-size: 20px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.back b { color: var(--text); }
+
+.board { position: absolute; left: 32px; top: 112px; width: 1104px; height: 568px; display: grid; grid-template-columns: repeat(8, 138px); grid-template-rows: repeat(4, 142px); background: var(--stone); border: 3px solid var(--line); }
+.cell { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); position: relative; }
+.cell .coord { position: absolute; left: 6px; top: 2px; font-family: var(--body); font-size: 18px; color: #4d4366; }
+.cell.danger { background: repeating-linear-gradient(45deg, rgba(255,90,95,.22) 0 10px, rgba(255,90,95,.08) 10px 20px); }
+.units, .fx { position: absolute; left: 32px; top: 112px; width: 1104px; height: 568px; pointer-events: none; }
+.unit { position: absolute; width: 138px; height: 142px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: left .35s, top .35s; }
+.sprite { width: 72px; height: 72px; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 34px; color: #000; box-shadow: 4px 4px 0 #000; position: relative; }
+.hero .sprite { background: var(--cls); }
+.hero.down .sprite { background: #444; transform: rotate(90deg); }
+.hero.tired .sprite { opacity: .55; }
+.hero.acted .sprite { outline: 4px solid var(--text); }
+.hero.taunt .sprite::after { content: "TAUNT"; position: absolute; top: -22px; font-size: 13px; color: var(--torch); text-shadow: 2px 2px 0 #000; }
+.tname { font-family: var(--body); font-size: 22px; line-height: 1; max-width: 132px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 2px 2px 0 #000; }
+.hp { width: 92px; height: 8px; background: #000; border: 1px solid #000; }
+.hp i { display: block; height: 100%; background: var(--heal); }
+.foe .sprite { background: var(--foe); color: #1a0306; }
+.foe .hp i { background: var(--foe); }
+.tag { position: absolute; top: -16px; right: -16px; width: 34px; height: 34px; background: var(--text); color: #000; font-size: 22px; display: grid; place-items: center; box-shadow: 3px 3px 0 #000; }
+.boss { width: 276px; height: 284px; }
+.boss .sprite { width: 190px; height: 190px; font-size: 64px; }
+.boss .hp { width: 220px; height: 12px; }
+.target-mark { position: absolute; top: 6px; right: 18px; font-family: var(--display); color: var(--foe); font-size: 26px; text-shadow: 2px 2px 0 #000; animation: blink .8s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.floater { position: absolute; width: 200px; text-align: center; font-family: var(--display); font-size: 26px; font-weight: 700; text-shadow: 3px 3px 0 #000; animation: rise 1.6s ease-out forwards; }
+.floater.small { font-size: 18px; }
+@keyframes rise { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-70px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .floater { animation: fade 1.6s forwards; } @keyframes fade { to { opacity: 0; } } .target-mark { animation: none; } .unit { transition: none; } }
+
+.panel { position: absolute; left: 1160px; width: 408px; background: var(--stone); border: 3px solid var(--line); padding: 14px 16px; }
+.panel h3 { font-family: var(--display); font-size: 16px; margin: 0 0 8px; color: var(--muted); font-weight: 400; letter-spacing: .06em; }
+.roster { top: 112px; height: 300px; overflow: hidden; }
+.intents { top: 428px; height: 252px; overflow: hidden; }
+.row { display: grid; grid-template-columns: 22px 1fr 54px 80px; gap: 8px; align-items: center; font-size: 22px; line-height: 1.15; }
+.row .sw { width: 16px; height: 16px; background: var(--cls); }
+.row .st { color: var(--muted); font-size: 18px; text-align: right; }
+.row .lv { color: var(--muted); font-size: 18px; }
+.intent { font-size: 22px; line-height: 1.2; }
+.intent b { color: var(--foe); font-family: var(--display); font-size: 16px; font-weight: 400; }
+.ticker { position: absolute; left: 32px; right: 32px; top: 700px; height: 72px; display: flex; flex-direction: column; justify-content: flex-end; font-size: 24px; color: var(--muted); overflow: hidden; }
+.ticker div:last-child { color: var(--text); }
+.help { position: absolute; left: 32px; right: 32px; bottom: 24px; height: 76px; display: flex; gap: 22px; align-items: center; background: var(--stone-2); border: 3px solid var(--line); padding: 0 20px; font-size: 24px; }
+.help code { font-family: var(--display); font-size: 17px; color: var(--torch); }
+.slots { display: flex; gap: 6px; margin-left: auto; }
+.slots i { width: 22px; height: 22px; border: 3px solid var(--hero); }
+.slots i.used { background: var(--hero); }
+
+.curtain { position: absolute; inset: 0; background: rgba(13,11,20,.86); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; text-align: center; }
+.curtain h2 { font-family: var(--display); font-size: 64px; margin: 0; color: var(--torch); text-shadow: 4px 4px 0 #000; }
+.curtain p { font-size: 34px; margin: 0; }
+.curtain code { font-family: var(--display); color: var(--hero); font-size: 30px; }
+.classes { display: flex; gap: 28px; margin-top: 12px; }
+.classes div { width: 220px; background: var(--stone); border: 3px solid var(--line); padding: 14px; font-size: 22px; text-align: left; }
+.classes b { display: block; font-family: var(--display); font-size: 18px; color: var(--cls); margin-bottom: 4px; }
+.recap { width: 900px; }
+.recap table { width: 100%; border-collapse: collapse; font-size: 26px; font-variant-numeric: tabular-nums; }
+.recap th { font-family: var(--display); font-size: 15px; color: var(--muted); font-weight: 400; text-align: left; padding: 4px 8px; }
+.recap td { padding: 4px 8px; border-top: 1px solid var(--line); text-align: left; }
+.recap .mvp { color: var(--gold); }
+
+/* side panel */
+.card { background: var(--stone); border: 2px solid var(--line); padding: 12px; }
+.card h2 { font-family: var(--display); font-size: 14px; color: var(--muted); margin: 0 0 8px; font-weight: 400; letter-spacing: .06em; }
+.chat { height: 300px; overflow-y: auto; font-size: 19px; line-height: 1.2; display: flex; flex-direction: column; gap: 2px; }
+.chat .bot { color: var(--torch); }
+.chat .who { color: var(--hero); }
+form { display: grid; grid-template-columns: 96px 1fr; gap: 6px; margin-top: 8px; }
+input, button { font-family: var(--body); font-size: 20px; background: var(--bg); color: var(--text); border: 2px solid var(--line); padding: 4px 8px; min-width: 0; }
+input:focus-visible, button:focus-visible { outline: 2px solid var(--torch); outline-offset: 1px; }
+form button { grid-column: 1 / -1; }
+button { cursor: pointer; background: var(--stone-2); }
+button:hover { border-color: var(--torch); }
+button.on { background: var(--torch); color: #000; }
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.chips button { font-size: 17px; padding: 2px 6px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="screen-col">
+    <h1>Chatacombs · BRB Raid mockup</h1>
+    <div class="stage-box" id="stageBox"><div class="stage" id="stage"></div></div>
+    <p class="note">What the stream would show full-screen during a break. Everything is simulated in the page: no server, no Twitch. Rules follow docs/brb-raid.md.</p>
+  </div>
+  <aside class="side">
+    <div class="card">
+      <h2>Twitch chat (simulated)</h2>
+      <div class="chat" id="chat"></div>
+      <form id="say">
+        <input id="who" value="fboucher" aria-label="Chat as">
+        <input id="cmd" placeholder="!join mage" aria-label="Chat message" autocomplete="off">
+        <button type="submit">Send to chat</button>
+      </form>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="card">
+      <h2>Mockup controls</h2>
+      <div class="btns">
+        <button id="bStart">Start BRB</button>
+        <button id="bBack">Streamer is back</button>
+        <button id="bViewers">+4 viewers join</button>
+        <button id="bAuto" class="on">Chat plays: on</button>
+        <button id="bSkip">Skip phase</button>
+        <button id="bBoss">Boss next</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+const CLASSES = {
+  knight: { name: 'Knight', letter: 'K', color: '#5fc4ff', hp: 30, melee: true, dmg: [4, 7], skill: 'Taunt: monsters hit you, for half damage' },
+  rogue:  { name: 'Rogue',  letter: 'R', color: '#c38bff', hp: 22, melee: true, dmg: [3, 6], skill: 'Backstab: double damage, better !search' },
+  mage:   { name: 'Mage',   letter: 'M', color: '#ff9f43', hp: 16, melee: false, dmg: [2, 5], skill: 'Fireball: hits a 3x3 area' },
+  cleric: { name: 'Cleric', letter: 'C', color: '#6fe08a', hp: 20, melee: false, dmg: [1, 3], skill: 'Heal the weakest, or revive' },
+};
+const FOES = [
+  { name: 'Goblin', letter: 'g', hp: 8, melee: true, dmg: [3, 5] },
+  { name: 'Skeleton archer', letter: 's', hp: 6, melee: false, dmg: [2, 4] },
+  { name: 'Ghoul', letter: 'G', hp: 12, melee: true, dmg: [4, 6] },
+];
+const COLS = 'ABCDEFGH';
+const W = 8, H = 4, CW = 138, CH = 142;
+const T = { join: 20, heroes: 15, monsters: 4, clear: 4, brb: 180 };
+const NAMES = ['pixelpanda','codewitch','lurker42','DevDuck','byte_bard','NullPtr','sir_debugs','tabsnotspaces','ramenrogue','git_gud','yaml_yeti','kernelkat','async_ana','404brian','mochi_dev','LGTM_larry'];
+
+const $ = id => document.getElementById(id);
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const now = () => Date.now();
+
+let S;
+function fresh() {
+  S = { phase: 'idle', phaseEnds: 0, brbEnds: 0, heroes: [], foes: [], enc: 0, cleared: 0, bossNext: false,
+        slots: 0, used: 0, acted: new Set(), tired: new Set(), ticker: [], pile: 0, plan: [], result: '', turn: 0 };
+}
+fresh();
+
+/* ---------- chat ---------- */
+function chat(who, text, bot) {
+  const d = document.createElement('div');
+  if (bot) d.className = 'bot';
+  d.innerHTML = `<span class="${bot ? '' : 'who'}">${esc(who)}:</span> ${esc(text)}`;
+  $('chat').appendChild(d);
+  $('chat').scrollTop = 1e6;
+}
+const bones = t => chat('Bones', t, true);
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function tick(t) { S.ticker.push(t); if (S.ticker.length > 2) S.ticker.shift(); }
+
+/* ---------- geometry ---------- */
+const hero = n => S.heroes.find(h => h.name.toLowerCase() === n.toLowerCase());
+const alive = () => S.heroes.filter(h => h.hp > 0);
+const liveFoes = () => S.foes.filter(f => f.hp > 0);
+function cellsOf(u) { const s = u.size || 1, out = []; for (let dx = 0; dx < s; dx++) for (let dy = 0; dy < s; dy++) out.push([u.x + dx, u.y + dy]); return out; }
+function dist(a, b) { let m = 99; for (const [ax, ay] of cellsOf(a)) for (const [bx, by] of cellsOf(b)) m = Math.min(m, Math.max(Math.abs(ax - bx), Math.abs(ay - by))); return m; }
+function occupied(x, y, except) { return [...S.heroes, ...liveFoes()].some(u => u !== except && (u.hp > 0 || u.cls) && cellsOf(u).some(([cx, cy]) => cx === x && cy === y)); }
+function freeHeroCell() { for (let x = 0; x < W; x++) for (let y = 0; y < H; y++) if (!occupied(x, y)) return [x, y]; return null; }
+const label = (x, y) => COLS[x] + (y + 1);
+
+/* ---------- phases ---------- */
+function setPhase(p, secs) { S.phase = p; S.phaseEnds = now() + secs * 1000; render(); }
+
+function startBrb() {
+  const keep = S.heroes.map(h => ({ name: h.name, cls: h.cls, lvl: h.lvl }));
+  fresh();
+  S.brbEnds = now() + T.brb * 1000;
+  for (const k of keep) join(k.name, k.cls, k.lvl, true);
+  bones('BRB raid is open! Type !join (or !join knight/rogue/mage/cleric) to fight while the streamer is away.');
+  setPhase('join', T.join);
+}
+
+function join(name, cls, lvl, quiet) {
+  if (hero(name)) return;
+  const spot = freeHeroCell();
+  if (!spot) { tick(`${name}: the raid is full`); return; }
+  cls = CLASSES[cls] ? cls : pick(Object.keys(CLASSES));
+  const c = CLASSES[cls];
+  lvl = lvl || rnd(1, 6);
+  const maxHp = c.hp + (lvl - 1) * 2;
+  S.heroes.push({ name, cls, lvl, x: spot[0], y: spot[1], hp: maxHp, maxHp, potion: 1, taunt: false, dmgDone: 0, gold: 0 });
+  if (!quiet) tick(`${name} joins as a level ${lvl} ${c.name}`);
+  render();
+}
+
+function startEncounter() {
+  S.enc++;
+  const n = Math.max(1, alive().length);
+  const avg = Math.round(alive().reduce((a, h) => a + h.lvl, 0) / n) || 1;
+  const boss = S.bossNext || (S.enc > 1 && Math.random() < 0.25);
+  S.bossNext = false;
+  S.foes = [];
+  if (boss) {
+    const hp = 20 + 10 * n + 3 * avg;
+    S.foes.push({ id: 1, name: 'Bone Dragon', letter: 'D', boss: true, size: 2, x: 6, y: 1, hp, maxHp: hp, melee: false, dmg: [5 + avg, 8 + avg] });
+    S.encName = 'BOSS · Bone Dragon';
+    bones('A Bone Dragon crawls out of the dark. Knights, taunt it!');
+  } else {
+    const count = Math.min(8, Math.max(2, Math.ceil(n / 2)));
+    const spots = []; for (let x = 7; x >= 5; x--) for (let y = 0; y < H; y++) spots.push([x, y]);
+    for (let i = 0; i < count; i++) {
+      const t = pick(FOES), hp = t.hp + 2 * avg, [x, y] = spots[i];
+      S.foes.push({ id: i + 1, name: t.name, letter: t.letter, x, y, hp, maxHp: hp, melee: t.melee, dmg: [t.dmg[0] + Math.floor(avg / 2), t.dmg[1] + Math.floor(avg / 2)] });
+    }
+    S.encName = `Encounter ${S.enc} · ${count} monsters`;
+  }
+  S.acted.clear(); S.tired.clear();
+  heroesTurn();
+}
+
+function heroesTurn() {
+  S.turn++;
+  S.slots = Math.max(1, Math.ceil(alive().length / 3));
+  S.used = 0;
+  planMonsters();
+  setPhase('heroes', T.heroes);
+}
+
+function endHeroesTurn() {
+  if (S.phase !== 'heroes') return;
+  setPhase('monsters', T.monsters);
+  runMonsters();
+}
+
+function nearestHero(f) { return alive().sort((a, b) => dist(f, a) - dist(f, b))[0]; }
+
+function planMonsters() {
+  S.plan = [];
+  const heroes = alive();
+  if (!heroes.length) return;
+  for (const f of liveFoes()) {
+    if (f.boss) {
+      const cycle = S.turn % 3;
+      if (cycle === 0) S.plan.push({ f, kind: 'all', text: 'Bone Storm hits EVERY hero', dmg: [3, 5] });
+      else {
+        const rowCounts = [0, 1, 2, 3].map(y => heroes.filter(h => h.y === y).length);
+        const y = rowCounts.indexOf(Math.max(...rowCounts));
+        S.plan.push({ f, kind: 'row', y, text: `Fire Breath on row ${y + 1}`, dmg: f.dmg });
+        const t = heroes.slice().sort((a, b) => b.dmgDone - a.dmgDone)[0];
+        S.plan.push({ f, kind: 'hit', target: t, text: `Tail Swipe on ${t.name}`, dmg: f.dmg });
+      }
+      const cx = Math.round(heroes.reduce((a, h) => a + h.x, 0) / heroes.length), cy = Math.round(heroes.reduce((a, h) => a + h.y, 0) / heroes.length);
+      if (cycle === 1) S.plan.push({ f, kind: 'area', x: cx, y: cy, text: `Bone Rain around ${label(cx, cy)}`, dmg: [3, 6] });
+    } else {
+      const t = nearestHero(f);
+      S.plan.push({ f, kind: f.melee ? 'charge' : 'hit', target: t, text: `${f.melee ? 'charges' : 'shoots'} ${t.name}`, dmg: f.dmg });
+    }
+  }
+}
+
+function dangerCells() {
+  const set = new Set();
+  if (S.phase !== 'heroes' && S.phase !== 'monsters') return set;
+  for (const p of S.plan) {
+    if (p.f.hp <= 0) continue;
+    if (p.kind === 'row') for (let x = 0; x < W; x++) set.add(x + ',' + p.y);
+    if (p.kind === 'area') for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) set.add((p.x + dx) + ',' + (p.y + dy));
+    if (p.kind === 'all') for (const h of alive()) set.add(h.x + ',' + h.y);
+  }
+  return set;
+}
+
+function hurt(h, dmg, why) {
+  if (h.hp <= 0) return;
+  if (h.taunt) dmg = Math.ceil(dmg / 2);
+  h.hp = Math.max(0, h.hp - dmg);
+  float(h, `-${dmg}`, 'var(--foe)');
+  if (h.hp === 0) { float(h, 'DOWN', 'var(--foe)', true); tick(`${h.name} is down! (${why})`); }
+}
+
+function runMonsters() {
+  const steps = S.plan.filter(p => p.f.hp > 0);
+  const taunter = () => alive().find(h => h.taunt);
+  const gap = Math.min(700, (T.monsters * 1000 - 400) / Math.max(1, steps.length));
+  steps.forEach((p, i) => setTimeout(() => {
+    if (S.phase !== 'monsters' || p.f.hp <= 0) return;
+    const d = () => rnd(p.dmg[0], p.dmg[1]);
+    if (p.kind === 'all') { alive().forEach(h => hurt(h, d(), p.text)); tick(`${p.f.name}: ${p.text}`); }
+    else if (p.kind === 'row') { const hit = alive().filter(h => h.y === p.y); hit.forEach(h => hurt(h, d(), p.text)); tick(`${p.f.name}: Fire Breath on row ${p.y + 1} hits ${hit.length}`); }
+    else if (p.kind === 'area') { const hit = alive().filter(h => Math.abs(h.x - p.x) <= 1 && Math.abs(h.y - p.y) <= 1); hit.forEach(h => hurt(h, d(), p.text)); tick(`${p.f.name}: Bone Rain hits ${hit.length}`); }
+    else {
+      let t = taunter() || p.target;
+      if (!t || t.hp <= 0) t = nearestHero(p.f);
+      if (!t) return;
+      if (p.kind === 'charge' && dist(p.f, t) > 1) stepToward(p.f, t, 2);
+      if (p.kind === 'charge' && dist(p.f, t) > 1) { tick(`${p.f.name} ${p.f.id} moves closer`); render(); return; }
+      const roll = rnd(1, 20);
+      if (roll < 5) { float(t, 'dodge', 'var(--muted)', true); tick(`${p.f.name} ${p.f.id} misses ${t.name}`); }
+      else { hurt(t, d(), p.f.name); tick(`${p.f.name} ${p.f.id} hits ${t.name}${t.taunt ? ' (taunted, half damage)' : ''}`); }
+    }
+    render();
+  }, 300 + i * gap));
+}
+
+function stepToward(f, t, steps) {
+  for (let s = 0; s < steps && dist(f, t) > 1; s++) {
+    const opts = [[-1, 0], [0, -1], [0, 1], [1, 0], [-1, -1], [-1, 1]].map(([dx, dy]) => [f.x + dx, f.y + dy])
+      .filter(([x, y]) => x >= 0 && x < W && y >= 0 && y < H && !occupied(x, y, f))
+      .sort((a, b) => Math.max(Math.abs(a[0] - t.x), Math.abs(a[1] - t.y)) - Math.max(Math.abs(b[0] - t.x), Math.abs(b[1] - t.y)));
+    if (!opts.length) return;
+    [f.x, f.y] = opts[0];
+  }
+}
+
+function afterMonsters() {
+  for (const h of S.heroes) h.taunt = false;
+  S.tired = new Set(S.acted); S.acted = new Set();
+  if (!alive().length) return endRaid('The party fell. The dungeon wins this time.');
+  heroesTurn();
+}
+
+function checkCleared() {
+  if (liveFoes().length || (S.phase !== 'heroes' && S.phase !== 'monsters')) return;
+  S.cleared++;
+  const gold = S.foes.reduce((a, f) => a + (f.boss ? 40 : 6), 0);
+  S.pile += gold;
+  tick(`Encounter cleared! ${gold} gold dropped, type !loot`);
+  if (S.foes.some(f => f.boss)) bones('The Bone Dragon falls! Grab the loot with !loot.');
+  S.acted.clear(); S.tired.clear();
+  setPhase('clear', T.clear);
+}
+
+function endRaid(why) {
+  if (S.phase === 'recap') return;
+  S.result = why;
+  const mvp = S.heroes.slice().sort((a, b) => b.dmgDone - a.dmgDone)[0];
+  const xp = 10 + 15 * S.cleared;
+  S.xp = xp;
+  bones(`Raid over: ${S.cleared} encounter${S.cleared === 1 ? '' : 's'} cleared, MVP ${mvp ? mvp.name : 'nobody'}, +${xp} XP to everyone who joined.`);
+  setPhase('recap', 9999);
+}
+
+/* ---------- commands ---------- */
+function say(who, text) {
+  who = who.trim() || 'viewer';
+  chat(who, text);
+  const m = text.trim().match(/^!(\w+)\s*(.*)$/);
+  if (!m) return;
+  const cmd = m[1].toLowerCase(), arg = m[2].trim().toLowerCase();
+  if (cmd === 'join') {
+    if (S.phase === 'idle' || S.phase === 'recap') return;
+    return join(who, arg);
+  }
+  const h = hero(who);
+  if (!h) return;
+  if (cmd === 'loot') return loot(h);
+  if (S.phase !== 'heroes') return float(h, 'wait', 'var(--muted)', true);
+  if (h.hp <= 0) return float(h, 'you are down', 'var(--muted)', true);
+  if (S.tired.has(h.name)) return float(h, 'exhausted', 'var(--muted)', true);
+  if (S.acted.has(h.name)) return float(h, 'already acted', 'var(--muted)', true);
+  if (S.used >= S.slots) return float(h, 'too slow!', 'var(--torch)', true);
+  const ok = ({ atk: attack, attack, skill, move, search, item }[cmd] || (() => false))(h, arg);
+  if (!ok) return render();
+  S.acted.add(h.name); S.used++;
+  render();
+  checkCleared();
+  if (S.phase === 'heroes' && S.used >= S.slots) setTimeout(endHeroesTurn, 900);
+}
+
+function targetFoe(h, arg) {
+  const foes = liveFoes();
+  if (!foes.length) return null;
+  const n = parseInt(arg, 10);
+  if (n) return foes.find(f => f.id === n) || null;
+  return foes.sort((a, b) => dist(h, a) - dist(h, b))[0];
+}
+
+function strike(h, f, mult, label) {
+  const c = CLASSES[h.cls], roll = rnd(1, 20);
+  const crit = roll === 20 || (h.cls === 'rogue' && roll >= 18);
+  if (roll < 6) { float(f, `d20:${roll} miss`, 'var(--muted)', true); tick(`${h.name} rolls ${roll} and misses ${f.name} ${f.id}`); return; }
+  let dmg = (rnd(c.dmg[0], c.dmg[1]) + Math.floor(h.lvl / 2)) * mult * (crit ? 2 : 1);
+  f.hp = Math.max(0, f.hp - dmg); h.dmgDone += dmg;
+  float(f, `${crit ? 'CRIT ' : ''}-${dmg}`, crit ? 'var(--gold)' : 'var(--text)');
+  tick(`${h.name} ${label} ${f.name} ${f.id}: d20 ${roll}, ${dmg} damage${f.hp === 0 ? ', defeated!' : ''}`);
+}
+
+function attack(h, arg) {
+  const f = targetFoe(h, arg);
+  if (!f) return float(h, 'no target', 'var(--muted)', true), false;
+  if (CLASSES[h.cls].melee && dist(h, f) > 1) return float(h, 'out of reach: !move', 'var(--torch)', true), false;
+  strike(h, f, 1, 'hits');
+  return true;
+}
+
+function skill(h, arg) {
+  if (h.cls === 'knight') { h.taunt = true; float(h, 'TAUNT', 'var(--torch)'); tick(`${h.name} taunts: monsters will target them for half damage`); return true; }
+  if (h.cls === 'rogue') {
+    const f = targetFoe(h, arg);
+    if (!f) return false;
+    if (dist(h, f) > 1) return float(h, 'out of reach: !move', 'var(--torch)', true), false;
+    strike(h, f, 2, 'backstabs'); return true;
+  }
+  if (h.cls === 'mage') {
+    const f = targetFoe(h, arg);
+    if (!f) return false;
+    const hit = liveFoes().filter(o => dist(f, o) <= 1);
+    let total = 0;
+    for (const o of hit) { const d = rnd(3, 6) + Math.floor(h.lvl / 2); o.hp = Math.max(0, o.hp - d); total += d; float(o, `-${d}`, 'var(--torch)'); }
+    h.dmgDone += total;
+    tick(`${h.name} casts Fireball on ${f.name} ${f.id}: hits ${hit.length} for ${total} total`);
+    return true;
+  }
+  if (h.cls === 'cleric') {
+    const down = S.heroes.find(o => o.hp <= 0);
+    if (down) { down.hp = Math.ceil(down.maxHp / 3); float(down, 'REVIVED', 'var(--heal)'); tick(`${h.name} revives ${down.name}`); return true; }
+    const t = alive().sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+    const amt = 6 + h.lvl; t.hp = Math.min(t.maxHp, t.hp + amt);
+    float(t, `+${amt}`, 'var(--heal)'); tick(`${h.name} heals ${t.name} for ${amt}`); return true;
+  }
+  return false;
+}
+
+function move(h, arg) {
+  let x = h.x, y = h.y;
+  const cell = arg.match(/^([a-h])\s*([1-4])$/);
+  if (cell) { x = COLS.indexOf(cell[1].toUpperCase()); y = +cell[2] - 1; }
+  else if (arg === 'fwd' || arg === 'forward' || arg === 'right') x++;
+  else if (arg === 'back' || arg === 'left') x--;
+  else if (arg === 'up') y--;
+  else if (arg === 'down') y++;
+  else return float(h, '!move C2 or fwd/back/up/down', 'var(--muted)', true), false;
+  if (x < 0 || x >= W || y < 0 || y >= H) return float(h, 'off the board', 'var(--muted)', true), false;
+  if (Math.max(Math.abs(x - h.x), Math.abs(y - h.y)) > 2) return float(h, 'too far (2 max)', 'var(--muted)', true), false;
+  if (occupied(x, y, h)) return float(h, 'cell taken', 'var(--muted)', true), false;
+  h.x = x; h.y = y; tick(`${h.name} moves to ${label(x, y)}`);
+  return true;
+}
+
+function search(h) {
+  const roll = rnd(1, 20) + (h.cls === 'rogue' ? 5 : 0);
+  if (roll >= 18) { h.potion++; float(h, 'found a potion', 'var(--heal)', true); tick(`${h.name} searches and finds a potion`); }
+  else if (roll >= 11) { const g = rnd(4, 12); h.gold += g; float(h, `+${g} gold`, 'var(--gold)', true); tick(`${h.name} searches and finds ${g} gold`); }
+  else { float(h, 'nothing', 'var(--muted)', true); tick(`${h.name} searches and finds nothing`); }
+  return true;
+}
+
+function item(h) {
+  if (!h.potion) return float(h, 'no potion', 'var(--muted)', true), false;
+  h.potion--; const amt = 8; h.hp = Math.min(h.maxHp, h.hp + amt);
+  float(h, `+${amt}`, 'var(--heal)'); tick(`${h.name} drinks a potion`); return true;
+}
+
+function loot(h) {
+  if (!S.pile) return float(h, 'nothing to loot', 'var(--muted)', true);
+  const g = Math.min(S.pile, rnd(5, 15) + (h.cls === 'rogue' ? 5 : 0));
+  S.pile -= g; h.gold += g; float(h, `+${g} gold`, 'var(--gold)'); tick(`${h.name} grabs ${g} gold`); render();
+}
+
+/* ---------- simulated chat ---------- */
+let auto = true;
+function botTurn() {
+  if (!auto) return;
+  const you = $('who').value.trim().toLowerCase();
+  if (S.phase === 'join' && S.heroes.length < 9 && Math.random() < 0.45) {
+    const n = NAMES.find(n => !hero(n));
+    if (n) say(n, Math.random() < 0.5 ? '!join' : '!join ' + pick(Object.keys(CLASSES)));
+    return;
+  }
+  if (S.phase === 'clear' && S.pile && Math.random() < 0.5) { const h = pick(alive()); if (h && h.name.toLowerCase() !== you) say(h.name, '!loot'); return; }
+  if (S.phase !== 'heroes' || Math.random() < 0.35) return;
+  if (Math.random() < 0.15) { const h = pick(S.heroes); if (h && h.name.toLowerCase() !== you) chat(h.name, pick(['lol', 'GG', 'go go go', 'is he back yet?', 'pog'])); return; }
+  const pool = alive().filter(h => h.name.toLowerCase() !== you);
+  const h = pick(pool);
+  if (!h) return;
+  const f = targetFoe(h, '');
+  if (!f) return;
+  const c = CLASSES[h.cls];
+  let cmd = '!atk ' + f.id;
+  if (h.cls === 'cleric' && (S.heroes.some(o => o.hp <= 0) || alive().some(o => o.hp < o.maxHp / 2))) cmd = '!skill';
+  else if (h.cls === 'knight' && liveFoes().some(o => o.boss) && !alive().some(o => o.taunt)) cmd = '!skill';
+  else if (h.hp < h.maxHp / 3 && h.potion) cmd = '!item';
+  else if (c.melee && dist(h, f) > 1) cmd = '!move fwd';
+  else if (Math.random() < 0.3) cmd = h.cls === 'rogue' && Math.random() < 0.3 ? '!search' : '!skill ' + f.id;
+  say(h.name, cmd);
+}
+
+/* ---------- render ---------- */
+function float(u, text, color, small) {
+  const el = document.createElement('div');
+  el.className = 'floater' + (small ? ' small' : '');
+  el.textContent = text; el.style.color = color;
+  const s = u.size || 1;
+  el.style.left = (u.x * CW + (CW * s) / 2 - 100) + 'px';
+  el.style.top = (u.y * CH + 4 + Math.random() * 20) + 'px';
+  $('fx').appendChild(el);
+  setTimeout(() => el.remove(), 1700);
+}
+
+function build() {
+  $('stage').innerHTML = `
+    <div class="topbar"><div class="logo">BRB RAID</div><div class="enc" id="enc"></div><div class="spacer"></div><div class="phase" id="phase"></div><div class="back" id="back"></div></div>
+    <div class="board" id="board"></div><div class="units" id="units"></div><div class="fx" id="fx"></div>
+    <div class="panel roster"><h3>PARTY</h3><div id="roster"></div></div>
+    <div class="panel intents"><h3>MONSTERS' NEXT MOVES</h3><div id="intents"></div></div>
+    <div class="ticker" id="ticker"></div>
+    <div class="help"><span><code>!join</code> class</span><span><code>!atk 2</code></span><span><code>!skill</code></span><span><code>!move C2</code></span><span><code>!search</code></span><span><code>!item</code></span><div class="slots" id="slots"></div></div>
+    <div class="curtain" id="curtain" hidden></div>`;
+  let cells = '';
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) cells += `<div class="cell" data-c="${x},${y}"><span class="coord">${label(x, y)}</span></div>`;
+  $('board').innerHTML = cells;
+}
+
+function render() {
+  const left = Math.max(0, Math.ceil((S.phaseEnds - now()) / 1000));
+  const brbLeft = Math.max(0, Math.ceil((S.brbEnds - now()) / 1000));
+  $('enc').textContent = S.phase === 'join' ? 'Gathering the party' : (S.encName || '');
+  const ph = $('phase');
+  ph.className = 'phase ' + S.phase;
+  ph.textContent = { idle: 'STREAM LIVE', join: `JOIN · ${left}s`, heroes: `HEROES' TURN · ${left}s`, monsters: "MONSTERS' TURN", clear: 'ROOM CLEARED', recap: 'WELCOME BACK' }[S.phase];
+  $('back').innerHTML = S.brbEnds && S.phase !== 'recap' ? `Back in <b>${Math.floor(brbLeft / 60)}:${String(brbLeft % 60).padStart(2, '0')}</b>` : '';
+
+  const danger = dangerCells();
+  document.querySelectorAll('.cell').forEach(c => c.classList.toggle('danger', danger.has(c.dataset.c)));
+
+  const targeted = new Set(S.plan.filter(p => p.f.hp > 0 && p.target).map(p => p.target.name));
+  let html = '';
+  for (const f of liveFoes()) {
+    html += `<div class="unit foe ${f.boss ? 'boss' : ''}" style="left:${f.x * CW}px;top:${f.y * CH}px"><div class="sprite">${f.letter}<span class="tag">${f.id}</span></div><div class="hp"><i style="width:${100 * f.hp / f.maxHp}%"></i></div></div>`;
+  }
+  for (const h of S.heroes) {
+    const c = CLASSES[h.cls];
+    const cls = ['unit', 'hero', h.hp <= 0 && 'down', S.tired.has(h.name) && 'tired', S.acted.has(h.name) && 'acted', h.taunt && 'taunt'].filter(Boolean).join(' ');
+    html += `<div class="${cls}" style="left:${h.x * CW}px;top:${h.y * CH}px;--cls:${c.color}">${S.phase === 'heroes' && targeted.has(h.name) && h.hp > 0 ? '<span class="target-mark">!</span>' : ''}<div class="sprite">${c.letter}</div><div class="tname">${esc(h.name)}</div><div class="hp"><i style="width:${100 * h.hp / h.maxHp}%"></i></div></div>`;
+  }
+  $('units').innerHTML = html;
+
+  $('roster').innerHTML = S.heroes.length ? S.heroes.slice(0, 11).map(h => {
+    const st = h.hp <= 0 ? 'DOWN' : S.acted.has(h.name) ? 'acted' : S.tired.has(h.name) ? 'tired' : `${h.hp}/${h.maxHp}`;
+    return `<div class="row" style="--cls:${CLASSES[h.cls].color}"><span class="sw"></span><span class="tname">${esc(h.name)}</span><span class="lv">Lv ${h.lvl}</span><span class="st">${st}</span></div>`;
+  }).join('') + (S.heroes.length > 11 ? `<div class="row"><span></span><span class="lv">+${S.heroes.length - 11} more</span></div>` : '') : '<div class="intent" style="color:var(--muted)">Nobody yet. Type !join</div>';
+
+  const plan = S.plan.filter(p => p.f.hp > 0);
+  $('intents').innerHTML = (S.phase === 'heroes' || S.phase === 'monsters') && plan.length
+    ? plan.slice(0, 8).map(p => `<div class="intent"><b>${p.f.boss ? 'BOSS' : p.f.id}</b> ${esc(p.f.boss ? p.text : p.f.name + ' ' + p.text)}</div>`).join('')
+    : '<div class="intent" style="color:var(--muted)">Shown at the start of each heroes\' turn.</div>';
+
+  $('ticker').innerHTML = S.ticker.map(t => `<div>${esc(t)}</div>`).join('');
+  $('slots').innerHTML = S.phase === 'heroes' ? `<span style="color:var(--hero);font-size:22px;margin-right:6px">Actions left</span>` + Array.from({ length: S.slots }, (_, i) => `<i class="${i < S.used ? 'used' : ''}"></i>`).join('') : '';
+
+  const cur = $('curtain');
+  if (S.phase === 'idle') {
+    cur.hidden = false;
+    cur.innerHTML = `<h2>STREAM IS LIVE</h2><p>Nothing on screen while the streamer is here.</p><p>Press <code>Start BRB</code> to open a raid.</p>`;
+  } else if (S.phase === 'join') {
+    cur.hidden = false;
+    cur.innerHTML = `<h2>BE RIGHT BACK</h2><p>Type <code>!join</code> to enter the raid · ${left}s</p><p style="color:var(--muted)">${S.heroes.length} hero${S.heroes.length === 1 ? '' : 'es'} joined</p><div class="classes">${Object.entries(CLASSES).map(([k, c]) => `<div style="--cls:${c.color}"><b>!join ${k}</b>${c.skill}</div>`).join('')}</div>`;
+  } else if (S.phase === 'recap') {
+    cur.hidden = false;
+    const rows = S.heroes.slice().sort((a, b) => b.dmgDone - a.dmgDone).slice(0, 8);
+    cur.innerHTML = `<h2>WELCOME BACK!</h2><p>${esc(S.result)} ${S.cleared} encounter${S.cleared === 1 ? '' : 's'} cleared · +${S.xp} XP each</p>
+      <div class="recap"><table><tr><th>HERO</th><th>CLASS</th><th>DAMAGE</th><th>GOLD</th></tr>${rows.map((h, i) => `<tr class="${i === 0 ? 'mvp' : ''}"><td>${i === 0 ? 'MVP ' : ''}${esc(h.name)}</td><td>${CLASSES[h.cls].name} Lv ${h.lvl}</td><td>${h.dmgDone}</td><td>${h.gold}</td></tr>`).join('')}</table></div>`;
+  } else cur.hidden = true;
+}
+
+/* ---------- loop ---------- */
+setInterval(() => {
+  const t = now();
+  if (S.brbEnds && t >= S.brbEnds && S.phase !== 'recap' && S.phase !== 'idle') endRaid('Time is up, the streamer is back.');
+  if (S.phase === 'join' && t >= S.phaseEnds) { if (S.heroes.length) startEncounter(); else setPhase('join', T.join); }
+  else if (S.phase === 'heroes' && t >= S.phaseEnds) endHeroesTurn();
+  else if (S.phase === 'monsters' && t >= S.phaseEnds) afterMonsters();
+  else if (S.phase === 'clear' && t >= S.phaseEnds) startEncounter();
+  render();
+}, 250);
+setInterval(botTurn, 650);
+
+function skip() { S.phaseEnds = now(); }
+
+/* ---------- wiring ---------- */
+function fit() { const box = $('stageBox'), s = box.clientWidth / 1600; $('stage').style.transform = `scale(${s})`; box.style.height = (900 * s) + 'px'; }
+window.addEventListener('resize', fit);
+build(); fit(); render();
+
+$('say').addEventListener('submit', e => { e.preventDefault(); const v = $('cmd').value.trim(); if (!v) return; say($('who').value, v); $('cmd').value = ''; });
+['!join', '!atk', '!atk 2', '!skill', '!move fwd', '!search', '!loot', '!item'].forEach(c => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = c;
+  b.addEventListener('click', () => say($('who').value, c)); $('chips').appendChild(b);
+});
+$('bStart').addEventListener('click', startBrb);
+$('bBack').addEventListener('click', () => { if (S.phase !== 'idle') endRaid('The streamer is back.'); });
+$('bViewers').addEventListener('click', () => { if (S.phase === 'idle' || S.phase === 'recap') startBrb(); for (let i = 0; i < 4; i++) { const n = NAMES.find(n => !hero(n)); if (n) say(n, '!join'); } });
+$('bAuto').addEventListener('click', e => { auto = !auto; e.target.classList.toggle('on', auto); e.target.textContent = 'Chat plays: ' + (auto ? 'on' : 'off'); });
+$('bSkip').addEventListener('click', skip);
+$('bBoss').addEventListener('click', () => { S.bossNext = true; tick('Next encounter will be a boss'); });
+
+// Open on a live example: a raid already running.
+startBrb();
+['pixelpanda', 'codewitch', 'lurker42', 'DevDuck', 'byte_bard'].forEach(n => say(n, '!join'));
+say('fboucher', '!join knight');
+S.phaseEnds = now() + 3000;
+})();
+</script>
+</body>
+</html>
